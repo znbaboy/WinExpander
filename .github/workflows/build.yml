@@ -98,6 +98,39 @@ jobs:
           if (Test-Path "$d\crash.log") { Get-Content "$d\crash.log"; throw 'crash.log written' }
           Remove-Item "$d\snippets.json", "$d\settings.json" -ErrorAction SilentlyContinue
 
+      - name: Settings navigation test (UI Automation click)
+        if: matrix.arch == 'x64'
+        shell: powershell
+        env:
+          TEXTEXPANDER_NO_DIALOG: '1'
+        run: |
+          Add-Type -AssemblyName UIAutomationClient, UIAutomationTypes
+          $d = Resolve-Path 'publish/WinExpander'
+          $app = Start-Process "$d\WinExpander.exe" -PassThru
+          Start-Sleep 12
+          $app.Refresh()
+          $win = [System.Windows.Automation.AutomationElement]::FromHandle($app.MainWindowHandle)
+          $all = [System.Windows.Automation.TreeScope]::Descendants
+          function Find($name) {
+            $c = New-Object System.Windows.Automation.PropertyCondition([System.Windows.Automation.AutomationElement]::NameProperty, $name)
+            $win.FindFirst($all, $c)
+          }
+          $item = Find 'Settings'
+          if (-not $item) { throw 'No Settings item found in the window' }
+          Write-Host "Found: $($item.Current.ControlType.ProgrammaticName) '$($item.Current.Name)'"
+          $p = $null
+          if ($item.TryGetCurrentPattern([System.Windows.Automation.SelectionItemPattern]::Pattern, [ref]$p)) { $p.Select() }
+          elseif ($item.TryGetCurrentPattern([System.Windows.Automation.InvokePattern]::Pattern, [ref]$p)) { $p.Invoke() }
+          else { throw 'Settings item cannot be clicked' }
+          Start-Sleep 3
+          $card = Find 'App theme'
+          Stop-Process $app -Force
+          Start-Sleep 2
+          if (Test-Path "$d\crash.log") { Get-Content "$d\crash.log"; Remove-Item "$d\crash.log" }
+          Remove-Item "$d\snippets.json", "$d\settings.json" -ErrorAction SilentlyContinue
+          if (-not $card) { throw 'Clicking Settings did not open the Settings page' }
+          Write-Host 'Settings navigation OK'
+
       - name: Expansion test (Notepad)
         if: matrix.arch == 'x64'
         shell: pwsh

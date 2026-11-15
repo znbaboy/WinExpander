@@ -26,7 +26,7 @@
         </Grid>
 
         <NavigationView x:Name="Nav" Grid.Row="1"
-                        PaneDisplayMode="LeftCompact" IsPaneToggleButtonVisible="False"
+                        PaneDisplayMode="Auto" OpenPaneLength="200" ExpandedModeThresholdWidth="1000"
                         IsBackButtonVisible="Collapsed" IsSettingsVisible="True"
                         SelectionChanged="Nav_SelectionChanged">
             <NavigationView.MenuItems>
