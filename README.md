@@ -13,6 +13,7 @@ Get the zip from [Releases](../../releases/latest) (x64 or arm64), unzip, run `W
 - Clipboard restored after each expansion
 - Light/dark theme, tray icon, start with Windows
 - Portable: snippets saved in `snippets.json` next to the exe
+- Built with WinUI 3 and the [Windows Community Toolkit](https://github.com/CommunityToolkit/Windows)
 
 ## Build
 Requires Visual Studio 2022 (or Build Tools) with the .NET desktop workload.
