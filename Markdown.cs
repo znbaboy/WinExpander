@@ -1,6 +1,6 @@
 using Markdig;
 
-namespace TextExpander;
+namespace WinExpander;
 
 /// <summary>Markdown → HTML / plain text (CommonMark + GitHub-style extensions).</summary>
 internal static class Markdown

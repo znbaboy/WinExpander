@@ -5,7 +5,7 @@ using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.Web.WebView2.Core;
 
-namespace TextExpander;
+namespace WinExpander;
 
 public sealed partial class MainWindow : Window
 {
@@ -51,6 +51,7 @@ public sealed partial class MainWindow : Window
         PlainModeRadios.SelectedIndex = (int)settings.PlainText;
         ThemeCombo.SelectedIndex = (int)settings.Theme;
         TrayToggle.IsOn = settings.CloseToTray;
+        Startup.MigrateLegacy();
         StartupToggle.IsOn = Startup.IsEnabled;
         ApplyTheme(settings.Theme);
         Root.ActualThemeChanged += (_, _) => UpdateCaptionButtons();
@@ -139,7 +140,7 @@ public sealed partial class MainWindow : Window
     private void EnabledToggle_Toggled(object sender, RoutedEventArgs e)
     {
         if (_expander != null) _expander.Enabled = EnabledToggle.IsOn;
-        _tray?.SetTooltip(EnabledToggle.IsOn ? "Text Expander" : "Text Expander (paused)");
+        _tray?.SetTooltip(EnabledToggle.IsOn ? "WinExpander" : "WinExpander (paused)");
     }
 
     // ---------- Tray / window ----------
@@ -219,7 +220,8 @@ public sealed partial class MainWindow : Window
         {
             Program.Log(ex);
             _initializing = true;
-            StartupToggle.IsOn = Startup.IsEnabled;
+            Startup.MigrateLegacy();
+        StartupToggle.IsOn = Startup.IsEnabled;
             _initializing = false;
         }
     }

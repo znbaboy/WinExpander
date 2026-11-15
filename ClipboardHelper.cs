@@ -1,7 +1,7 @@
 using System.Runtime.InteropServices;
 using System.Text;
 
-namespace TextExpander;
+namespace WinExpander;
 
 /// <summary>Win32 clipboard: put rich (HTML) + plain text, back up and restore the user's clipboard.</summary>
 internal static class ClipboardHelper

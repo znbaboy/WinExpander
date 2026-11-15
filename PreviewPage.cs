@@ -1,4 +1,4 @@
-namespace TextExpander;
+namespace WinExpander;
 
 /// <summary>Wraps rendered Markdown in a Fluent-styled HTML page for the preview pane.</summary>
 internal static class PreviewPage

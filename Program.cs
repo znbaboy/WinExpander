@@ -2,7 +2,7 @@ using System.Runtime.InteropServices;
 using Microsoft.UI.Dispatching;
 using Microsoft.UI.Xaml;
 
-namespace TextExpander;
+namespace WinExpander;
 
 /// <summary>
 /// Custom entry point so startup failures are logged (crash.log next to the exe)
@@ -16,7 +16,7 @@ public static class Program
     public static int Main(string[] args)
     {
         // Single instance: if already running (e.g. hidden in the tray), bring it to the front
-        _singleInstance = new Mutex(true, "WinTextExpander.SingleInstance", out bool isFirst);
+        _singleInstance = new Mutex(true, "WinExpander.SingleInstance", out bool isFirst);
         if (!isFirst)
         {
             PostMessage((IntPtr)0xFFFF /* HWND_BROADCAST */, TrayIcon.WM_SHOWAPP, IntPtr.Zero, IntPtr.Zero);
@@ -25,7 +25,7 @@ public static class Program
 
         // Keep WebView2's cache out of the portable folder; transparent preview background
         Environment.SetEnvironmentVariable("WEBVIEW2_USER_DATA_FOLDER",
-            Path.Combine(Path.GetTempPath(), "TextExpander.WebView2"));
+            Path.Combine(Path.GetTempPath(), "WinExpander.WebView2"));
         Environment.SetEnvironmentVariable("WEBVIEW2_DEFAULT_BACKGROUND_COLOR", "00000000");
 
         AppDomain.CurrentDomain.UnhandledException += (_, e) => Report(e.ExceptionObject as Exception);
@@ -58,7 +58,7 @@ public static class Program
     {
         Log(ex);
         if (Environment.GetEnvironmentVariable("TEXTEXPANDER_NO_DIALOG") != "1")
-            MessageBoxW(IntPtr.Zero, ex?.ToString() ?? "Unknown error", "Text Expander crashed", 0x10);
+            MessageBoxW(IntPtr.Zero, ex?.ToString() ?? "Unknown error", "WinExpander crashed", 0x10);
     }
 
     [DllImport("user32.dll")]

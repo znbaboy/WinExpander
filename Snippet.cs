@@ -4,7 +4,7 @@ using System.Runtime.CompilerServices;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 
-namespace TextExpander;
+namespace WinExpander;
 
 public partial class Snippet : INotifyPropertyChanged
 {
@@ -64,7 +64,14 @@ internal static class SnippetStore
         }
         catch
         {
-            return Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "TextExpander");
+            string local = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
+            string dir = Path.Combine(local, "WinExpander");
+            string legacy = Path.Combine(local, "TextExpander"); // previous app name
+            if (!Directory.Exists(dir) && Directory.Exists(legacy))
+            {
+                try { Directory.Move(legacy, dir); } catch { return legacy; }
+            }
+            return dir;
         }
     }
 

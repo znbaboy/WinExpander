@@ -1,7 +1,7 @@
 using System.Runtime.InteropServices;
 using System.Text;
 
-namespace TextExpander;
+namespace WinExpander;
 
 internal static class Native
 {

@@ -1,13 +1,15 @@
-# Text Expander
+# WinExpander
+
+*(formerly Text Expander)*
 
 A minimal, portable, open-source text expander for Windows, built with WinUI 3.
 
 Type a trigger (e.g. `;sig`) anywhere → it's replaced with your snippet.
 
-![Text Expander in dark mode](docs/screenshot.png)
+![WinExpander in dark mode](docs/screenshot.png)
 
 ## Download
-Grab `TextExpander-portable-x64.zip` (or `arm64`) from **Releases**, unzip anywhere, run `TextExpander.exe`.
+Grab `WinExpander-portable-x64.zip` (or `arm64`) from **Releases**, unzip anywhere, run `WinExpander.exe`.
 No installer, no .NET or Windows App SDK install needed.
 
 ## Features
@@ -25,7 +27,7 @@ No installer, no .NET or Windows App SDK install needed.
 - **New snippet** (Ctrl+N), set a trigger like `;sig`, write the body in Markdown.
 - Type the trigger anywhere and it gets replaced.
 - Toggle switch pauses expansion. Expansion is disabled while the app itself is focused.
-- Snippets are saved to `snippets.json` next to the exe (portable). If that folder isn't writable, it falls back to `%LOCALAPPDATA%\TextExpander\`.
+- Snippets are saved to `snippets.json` next to the exe (portable). If that folder isn't writable, it falls back to `%LOCALAPPDATA%\WinExpander\`.
 - Settings (⚙ bottom-left): theme, close to tray, start with Windows, plain-text paste mode.
 
 ## Build from source
@@ -39,7 +41,7 @@ dotnet run -p:Platform=x64
 powershell -ExecutionPolicy Bypass -File .\build.ps1
 
 # or manually
-dotnet publish -c Release -r win-x64 -p:Platform=x64 -o publish\TextExpander
+dotnet publish -c Release -r win-x64 -p:Platform=x64 -o publish\WinExpander
 ```
 
 Or open in Visual Studio 2022 (with the "WinUI application development" workload) and press F5.

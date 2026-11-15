@@ -1,6 +1,6 @@
 using System.Runtime.InteropServices;
 
-namespace TextExpander;
+namespace WinExpander;
 
 /// <summary>System tray (notification area) icon with an Open / Pause / Exit menu.</summary>
 internal sealed class TrayIcon : IDisposable
@@ -8,7 +8,7 @@ internal sealed class TrayIcon : IDisposable
     private const uint WM_TRAY = 0x8001; // WM_APP + 1
     private static readonly uint WM_TASKBARCREATED = RegisterWindowMessage("TaskbarCreated");
     /// <summary>Broadcast by a second instance to bring this one to the front.</summary>
-    public static readonly uint WM_SHOWAPP = RegisterWindowMessage("WinTextExpander.ShowWindow");
+    public static readonly uint WM_SHOWAPP = RegisterWindowMessage("WinExpander.ShowWindow");
 
     private readonly IntPtr _hwnd;
     private readonly IntPtr _icon;
@@ -34,7 +34,7 @@ internal sealed class TrayIcon : IDisposable
         uID = 1,
         uCallbackMessage = WM_TRAY,
         hIcon = _icon,
-        szTip = "Text Expander",
+        szTip = "WinExpander",
         szInfo = "",
         szInfoTitle = "",
     };
@@ -79,7 +79,7 @@ internal sealed class TrayIcon : IDisposable
     private void ShowMenu()
     {
         var menu = CreatePopupMenu();
-        AppendMenu(menu, 0x0 /* MF_STRING */, 1, "Open Text Expander");
+        AppendMenu(menu, 0x0 /* MF_STRING */, 1, "Open WinExpander");
         AppendMenu(menu, IsPaused() ? 0x8u /* MF_CHECKED */ : 0x0u, 2, "Pause expansion");
         AppendMenu(menu, 0x800 /* MF_SEPARATOR */, 0, null);
         AppendMenu(menu, 0x0, 3, "Exit");

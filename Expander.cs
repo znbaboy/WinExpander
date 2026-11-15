@@ -2,7 +2,7 @@ using System.Runtime.InteropServices;
 using System.Text;
 using Microsoft.UI.Dispatching;
 
-namespace TextExpander;
+namespace WinExpander;
 
 /// <summary>
 /// Global low-level keyboard hook. Keeps a rolling buffer of typed characters and,

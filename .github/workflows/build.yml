@@ -33,17 +33,17 @@ jobs:
 
       - name: Publish portable
         run: >
-          msbuild TextExpander.csproj /restore /t:Publish /m
+          msbuild WinExpander.csproj /restore /t:Publish /m
           /p:Configuration=Release /p:Platform=${{ matrix.arch }}
           /p:RuntimeIdentifier=win-${{ matrix.arch }}
-          /p:PublishDir=${{ github.workspace }}\publish\TextExpander\
+          /p:PublishDir=${{ github.workspace }}\publish\WinExpander\
 
       - name: Verify app resources
         shell: pwsh
         run: |
-          $d = 'publish/TextExpander'
+          $d = 'publish/WinExpander'
           Get-ChildItem $d -Recurse -Include *.pri,*.xbf | ForEach-Object { $_.FullName }
-          if (-not (Test-Path "$d/TextExpander.pri")) { throw 'TextExpander.pri missing from publish output' }
+          if (-not (Test-Path "$d/WinExpander.pri")) { throw 'WinExpander.pri missing from publish output' }
 
       - name: Smoke test (launch, single instance, close to tray, --tray)
         if: matrix.arch == 'x64'
@@ -58,8 +58,8 @@ jobs:
             [DllImport("user32.dll")] public static extern bool IsWindowVisible(IntPtr h);
           }
           "@
-          $d = Resolve-Path 'publish/TextExpander'
-          $exe = "$d\TextExpander.exe"
+          $d = Resolve-Path 'publish/WinExpander'
+          $exe = "$d\WinExpander.exe"
           function Fail($m) { if (Test-Path "$d\crash.log") { Get-Content "$d\crash.log" }; throw $m }
 
           $p = Start-Process $exe -PassThru
@@ -104,8 +104,8 @@ jobs:
         env:
           TEXTEXPANDER_NO_DIALOG: '1'
         run: |
-          $d = Resolve-Path 'publish/TextExpander'
-          $app = Start-Process "$d/TextExpander.exe" -PassThru
+          $d = Resolve-Path 'publish/WinExpander'
+          $app = Start-Process "$d/WinExpander.exe" -PassThru
           Start-Sleep 10
           $np = Start-Process notepad -PassThru
           Start-Sleep 4
@@ -132,8 +132,8 @@ jobs:
         env:
           TEXTEXPANDER_NO_DIALOG: '1'
         run: |
-          $d = Resolve-Path 'publish/TextExpander'
-          $app = Start-Process "$d/TextExpander.exe" -PassThru
+          $d = Resolve-Path 'publish/WinExpander'
+          $app = Start-Process "$d/WinExpander.exe" -PassThru
           Start-Sleep 10
           $page = Join-Path $env:RUNNER_TEMP 'richtest.html'
           '<html><head><title>RichTest</title></head><body><div id="e" contenteditable="true" style="height:90vh"></div><script>document.getElementById("e").focus()</script></body></html>' | Set-Content $page -Encoding UTF8
@@ -168,7 +168,7 @@ jobs:
         env:
           TEXTEXPANDER_NO_DIALOG: '1'
         run: |
-          $d = Resolve-Path 'publish/TextExpander'
+          $d = Resolve-Path 'publish/WinExpander'
           reg add HKCU\Software\Microsoft\Windows\CurrentVersion\Themes\Personalize /v AppsUseLightTheme /t REG_DWORD /d 0 /f | Out-Null
           # Demo snippets for the screenshot
           $demo = @(
@@ -190,7 +190,7 @@ jobs:
           Add-Type -AssemblyName System.Drawing
           foreach ($t in @(@{ Name = 'screenshot'; Theme = 2 }, @{ Name = 'screenshot-light'; Theme = 1 })) {
             "{ `"Theme`": $($t.Theme) }" | Set-Content "$d/settings.json" -Encoding UTF8
-            $app = Start-Process "$d/TextExpander.exe" -PassThru
+            $app = Start-Process "$d/WinExpander.exe" -PassThru
             Start-Sleep 12
             $app.Refresh(); $h = $app.MainWindowHandle
             [W]::SetWindowPos($h, [IntPtr]::Zero, 40, 20, 980, 660, 0x40) | Out-Null
@@ -215,12 +215,12 @@ jobs:
           path: screenshot*.png
 
       - name: Zip
-        run: Compress-Archive -Path publish/TextExpander/* -DestinationPath TextExpander-portable-${{ matrix.arch }}.zip
+        run: Compress-Archive -Path publish/WinExpander/* -DestinationPath WinExpander-portable-${{ matrix.arch }}.zip
 
       - uses: actions/upload-artifact@v4
         with:
-          name: TextExpander-portable-${{ matrix.arch }}
-          path: TextExpander-portable-${{ matrix.arch }}.zip
+          name: WinExpander-portable-${{ matrix.arch }}
+          path: WinExpander-portable-${{ matrix.arch }}.zip
 
       - name: Attach to release
         if: startsWith(github.ref, 'refs/tags/v') || inputs.release != ''
@@ -231,7 +231,7 @@ jobs:
           target_commitish: ${{ github.sha }}
           generate_release_notes: true
           body: |
-            Portable — download the zip for your PC (x64 for most, arm64 for Snapdragon), unzip anywhere, run `TextExpander.exe`. No install needed.
+            Portable — download the zip for your PC (x64 for most, arm64 for Snapdragon), unzip anywhere, run `WinExpander.exe`. No install needed.
 
-            ![Text Expander](https://raw.githubusercontent.com/${{ github.repository }}/${{ github.sha }}/docs/screenshot.png)
-          files: TextExpander-portable-${{ matrix.arch }}.zip
+            ![WinExpander](https://raw.githubusercontent.com/${{ github.repository }}/${{ github.sha }}/docs/screenshot.png)
+          files: WinExpander-portable-${{ matrix.arch }}.zip

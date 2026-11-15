@@ -1,6 +1,6 @@
 using System.Runtime.InteropServices;
 
-namespace TextExpander;
+namespace WinExpander;
 
 /// <summary>
 /// Hooks the main window's WndProc: enforces a minimum size (DPI-aware) and

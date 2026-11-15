@@ -1,9 +1,9 @@
 <#
-  Builds a portable TextExpander.
+  Builds a portable WinExpander.
   Usage (from the project folder):
     powershell -ExecutionPolicy Bypass -File .\build.ps1            # x64
     powershell -ExecutionPolicy Bypass -File .\build.ps1 -Arch arm64
-  Output: .\publish\TextExpander\  and  .\TextExpander-portable-<arch>.zip
+  Output: .\publish\WinExpander\  and  .\WinExpander-portable-<arch>.zip
 #>
 param(
     [ValidateSet('x64', 'arm64', 'x86')]
@@ -30,7 +30,7 @@ if (-not (Test-Net8Sdk)) {
 Write-Host "Using .NET SDK $(dotnet --version)" -ForegroundColor Cyan
 
 # 2. Publish portable, self-contained build
-$out = Join-Path $PSScriptRoot 'publish\TextExpander'
+$out = Join-Path $PSScriptRoot 'publish\WinExpander'
 if (Test-Path $out) { Remove-Item $out -Recurse -Force }
 
 # WinUI's resource (PRI) tasks ship with Visual Studio, so prefer VS MSBuild
@@ -41,18 +41,18 @@ $msbuild = if (Test-Path $vswhere) {
 
 if ($msbuild) {
     Write-Host "Using $msbuild" -ForegroundColor Cyan
-    & $msbuild TextExpander.csproj /restore /t:Publish /m /v:m `
+    & $msbuild WinExpander.csproj /restore /t:Publish /m /v:m `
         /p:Configuration=Release /p:Platform=$Arch /p:RuntimeIdentifier=win-$Arch "/p:PublishDir=$out\"
 } else {
     Write-Warning 'Visual Studio / Build Tools not found - trying dotnet publish (may fail on PRI tasks).'
     Write-Warning 'If it fails, install "Visual Studio Build Tools" with the ".NET desktop build tools" workload,'
     Write-Warning 'or just download the prebuilt zip from the GitHub Releases page.'
-    dotnet publish TextExpander.csproj -c Release -r "win-$Arch" -p:Platform=$Arch -o $out
+    dotnet publish WinExpander.csproj -c Release -r "win-$Arch" -p:Platform=$Arch -o $out
 }
 if ($LASTEXITCODE -ne 0) { throw "Build failed (exit $LASTEXITCODE)" }
 
 # 3. Zip it
-$zip = Join-Path $PSScriptRoot "TextExpander-portable-$Arch.zip"
+$zip = Join-Path $PSScriptRoot "WinExpander-portable-$Arch.zip"
 if (Test-Path $zip) { Remove-Item $zip -Force }
 Compress-Archive -Path "$out\*" -DestinationPath $zip
 
@@ -60,4 +60,4 @@ Write-Host ''
 Write-Host "Done!" -ForegroundColor Green
 Write-Host "  Folder: $out"
 Write-Host "  Zip:    $zip"
-Write-Host "  Run:    $out\TextExpander.exe"
+Write-Host "  Run:    $out\WinExpander.exe"
