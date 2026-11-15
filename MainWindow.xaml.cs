@@ -220,7 +220,6 @@ public sealed partial class MainWindow : Window
         {
             Program.Log(ex);
             _initializing = true;
-            Startup.MigrateLegacy();
         StartupToggle.IsOn = Startup.IsEnabled;
             _initializing = false;
         }
