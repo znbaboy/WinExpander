@@ -10,13 +10,14 @@ internal static class PreviewPage
         string border = dark ? "rgba(255,255,255,.12)" : "rgba(0,0,0,.12)";
         string codeBg = dark ? "rgba(255,255,255,.07)" : "rgba(0,0,0,.05)";
         string link = dark ? "#99ebff" : "#005fb8";
+        string bg = dark ? "#1e1e1e" : "#fbfbfb"; // explicit: WebView2's own default follows the OS theme
 
         return $$"""
         <!DOCTYPE html>
         <html><head><meta charset="utf-8">
         <style>
           :root { color-scheme: {{(dark ? "dark" : "light")}}; }
-          html, body { background: transparent; margin: 0; }
+          html, body { background: {{bg}}; margin: 0; }
           body { padding: 12px 16px; color: {{fg}}; font: 14px/1.55 "Segoe UI Variable Text", "Segoe UI", sans-serif; word-wrap: break-word; }
           h1, h2, h3, h4 { font-family: "Segoe UI Variable Display", "Segoe UI", sans-serif; font-weight: 600; margin: 1em 0 .4em; line-height: 1.25; }
           h1 { font-size: 1.75em; } h2 { font-size: 1.4em; } h3 { font-size: 1.15em; }

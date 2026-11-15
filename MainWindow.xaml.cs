@@ -359,6 +359,8 @@ public sealed partial class MainWindow : Window
     {
         if (!_previewReady) return;
         bool dark = Root.ActualTheme == ElementTheme.Dark;
+        Preview.CoreWebView2.Profile.PreferredColorScheme =
+            dark ? CoreWebView2PreferredColorScheme.Dark : CoreWebView2PreferredColorScheme.Light;
         Preview.NavigateToString(PreviewPage.Build(Markdown.ToHtml(_current?.Text ?? ""), dark));
     }
 }
