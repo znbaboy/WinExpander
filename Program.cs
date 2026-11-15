@@ -10,9 +10,19 @@ namespace TextExpander;
 /// </summary>
 public static class Program
 {
+    private static Mutex? _singleInstance;
+
     [STAThread]
     public static int Main(string[] args)
     {
+        // Single instance: if already running (e.g. hidden in the tray), bring it to the front
+        _singleInstance = new Mutex(true, "WinTextExpander.SingleInstance", out bool isFirst);
+        if (!isFirst)
+        {
+            PostMessage((IntPtr)0xFFFF /* HWND_BROADCAST */, TrayIcon.WM_SHOWAPP, IntPtr.Zero, IntPtr.Zero);
+            return 0;
+        }
+
         // Keep WebView2's cache out of the portable folder; transparent preview background
         Environment.SetEnvironmentVariable("WEBVIEW2_USER_DATA_FOLDER",
             Path.Combine(Path.GetTempPath(), "TextExpander.WebView2"));
@@ -50,6 +60,9 @@ public static class Program
         if (Environment.GetEnvironmentVariable("TEXTEXPANDER_NO_DIALOG") != "1")
             MessageBoxW(IntPtr.Zero, ex?.ToString() ?? "Unknown error", "Text Expander crashed", 0x10);
     }
+
+    [DllImport("user32.dll")]
+    private static extern bool PostMessage(IntPtr hWnd, uint msg, IntPtr wParam, IntPtr lParam);
 
     [DllImport("user32.dll", CharSet = CharSet.Unicode)]
     private static extern int MessageBoxW(IntPtr hWnd, string text, string caption, uint type);

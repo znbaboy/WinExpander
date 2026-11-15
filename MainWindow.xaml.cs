@@ -17,6 +17,10 @@ public sealed partial class MainWindow : Window
     private Snippet? _current;
     private bool _loading;
     private bool _previewReady;
+    private bool _exiting;
+    private bool _initializing = true;
+    private readonly IntPtr _hwnd;
+    private readonly TrayIcon _tray;
 
     public MainWindow()
     {
@@ -28,12 +32,40 @@ public sealed partial class MainWindow : Window
         AppWindow.SetIcon(Path.Combine(AppContext.BaseDirectory, "Assets", "app.ico"));
         AppWindow.Resize(new Windows.Graphics.SizeInt32(1100, 720));
 
-        var hwnd = WinRT.Interop.WindowNative.GetWindowHandle(this);
-        WindowMinSize.Apply(hwnd, 760, 480);
+        var hwnd = _hwnd = WinRT.Interop.WindowNative.GetWindowHandle(this);
+        WindowHook.Apply(hwnd, 760, 480);
         ClipboardHelper.Owner = hwnd;
         _expander = new Expander(() => Snippets, DispatcherQueue, hwnd);
         EnabledToggle.IsOn = true; // after _expander exists (Toggled fires immediately)
-        PlainModeRadios.SelectedIndex = (int)AppSettings.Current.PlainText;
+
+        // Tray icon
+        _tray = new TrayIcon(hwnd, Path.Combine(AppContext.BaseDirectory, "Assets", "app.ico"));
+        _tray.IsPaused = () => !EnabledToggle.IsOn;
+        _tray.OpenRequested += ShowFromTray;
+        _tray.PauseToggled += () => EnabledToggle.IsOn = !EnabledToggle.IsOn;
+        _tray.ExitRequested += ExitApp;
+        WindowHook.Handler = _tray.HandleMessage;
+
+        // Settings
+        var settings = AppSettings.Current;
+        PlainModeRadios.SelectedIndex = (int)settings.PlainText;
+        ThemeCombo.SelectedIndex = (int)settings.Theme;
+        TrayToggle.IsOn = settings.CloseToTray;
+        StartupToggle.IsOn = Startup.IsEnabled;
+        ApplyTheme(settings.Theme);
+        Root.ActualThemeChanged += (_, _) => UpdateCaptionButtons();
+        UpdateCaptionButtons();
+        _initializing = false;
+
+        AppWindow.Closing += (_, e) =>
+        {
+            if (!_exiting && AppSettings.Current.CloseToTray)
+            {
+                e.Cancel = true;
+                Save();
+                AppWindow.Hide();
+            }
+        };
 
         _saveTimer = CreateTimer(600, Save);
         _previewTimer = CreateTimer(150, UpdatePreview);
@@ -47,6 +79,7 @@ public sealed partial class MainWindow : Window
         {
             Save();
             _expander.Dispose();
+            _tray.Dispose();
         };
     }
 
@@ -106,6 +139,89 @@ public sealed partial class MainWindow : Window
     private void EnabledToggle_Toggled(object sender, RoutedEventArgs e)
     {
         if (_expander != null) _expander.Enabled = EnabledToggle.IsOn;
+        _tray?.SetTooltip(EnabledToggle.IsOn ? "Text Expander" : "Text Expander (paused)");
+    }
+
+    // ---------- Tray / window ----------
+
+    private void ShowFromTray()
+    {
+        Activate();
+        if (AppWindow.Presenter is OverlappedPresenter p && p.State == OverlappedPresenterState.Minimized) p.Restore();
+        SetForegroundWindow(_hwnd);
+    }
+
+    private void ExitApp()
+    {
+        _exiting = true;
+        Close();
+    }
+
+    [System.Runtime.InteropServices.DllImport("user32.dll")]
+    private static extern bool SetForegroundWindow(IntPtr hWnd);
+
+    // ---------- Settings ----------
+
+    private void Theme_Changed(object sender, SelectionChangedEventArgs e)
+    {
+        if (_initializing || ThemeCombo.SelectedIndex < 0) return;
+        AppSettings.Current.Theme = (AppTheme)ThemeCombo.SelectedIndex;
+        AppSettings.Current.Save();
+        ApplyTheme(AppSettings.Current.Theme);
+    }
+
+    private void ApplyTheme(AppTheme theme)
+    {
+        Root.RequestedTheme = theme switch
+        {
+            AppTheme.Light => ElementTheme.Light,
+            AppTheme.Dark => ElementTheme.Dark,
+            _ => ElementTheme.Default,
+        };
+        TrayIcon.SetMenuTheme(theme);
+        UpdateCaptionButtons();
+    }
+
+    // Min / max / close buttons don't follow RequestedTheme on their own
+    private void UpdateCaptionButtons()
+    {
+        var tb = AppWindow.TitleBar;
+        bool dark = Root.ActualTheme == ElementTheme.Dark;
+        var fg = dark ? Microsoft.UI.Colors.White : Microsoft.UI.Colors.Black;
+        tb.ButtonBackgroundColor = Microsoft.UI.Colors.Transparent;
+        tb.ButtonInactiveBackgroundColor = Microsoft.UI.Colors.Transparent;
+        tb.ButtonForegroundColor = fg;
+        tb.ButtonHoverForegroundColor = fg;
+        tb.ButtonPressedForegroundColor = fg;
+        tb.ButtonInactiveForegroundColor = dark
+            ? Windows.UI.Color.FromArgb(0x80, 0xFF, 0xFF, 0xFF)
+            : Windows.UI.Color.FromArgb(0x80, 0x00, 0x00, 0x00);
+        tb.ButtonHoverBackgroundColor = dark
+            ? Windows.UI.Color.FromArgb(0x15, 0xFF, 0xFF, 0xFF)
+            : Windows.UI.Color.FromArgb(0x0F, 0x00, 0x00, 0x00);
+        tb.ButtonPressedBackgroundColor = dark
+            ? Windows.UI.Color.FromArgb(0x0B, 0xFF, 0xFF, 0xFF)
+            : Windows.UI.Color.FromArgb(0x0A, 0x00, 0x00, 0x00);
+    }
+
+    private void Tray_Toggled(object sender, RoutedEventArgs e)
+    {
+        if (_initializing) return;
+        AppSettings.Current.CloseToTray = TrayToggle.IsOn;
+        AppSettings.Current.Save();
+    }
+
+    private void Startup_Toggled(object sender, RoutedEventArgs e)
+    {
+        if (_initializing) return;
+        try { Startup.Set(StartupToggle.IsOn); }
+        catch (Exception ex)
+        {
+            Program.Log(ex);
+            _initializing = true;
+            StartupToggle.IsOn = Startup.IsEnabled;
+            _initializing = false;
+        }
     }
 
     private void PlainMode_Changed(object sender, SelectionChangedEventArgs e)

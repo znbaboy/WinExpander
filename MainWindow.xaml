@@ -80,15 +80,36 @@
                         <SymbolIcon Symbol="Setting" />
                         <Button.Flyout>
                             <Flyout Placement="TopEdgeAlignedRight">
-                                <StackPanel Width="300" Spacing="8">
-                                    <TextBlock Text="Pasting" Style="{StaticResource BodyStrongTextBlockStyle}" />
-                                    <TextBlock TextWrapping="Wrap" Style="{StaticResource CaptionTextBlockStyle}"
-                                               Foreground="{ThemeResource TextFillColorSecondaryBrush}"
-                                               Text="Rich-text apps (Word, Outlook, Gmail, Teams…) always get formatted text. Apps that only accept plain text get:" />
-                                    <RadioButtons x:Name="PlainModeRadios" SelectionChanged="PlainMode_Changed">
-                                        <x:String>Markdown source (Discord, Slack, Obsidian, GitHub…)</x:String>
-                                        <x:String>Plain text without Markdown symbols</x:String>
-                                    </RadioButtons>
+                                <StackPanel Width="320" Spacing="20">
+                                    <StackPanel Spacing="8">
+                                        <TextBlock Text="Appearance" Style="{StaticResource BodyStrongTextBlockStyle}" />
+                                        <ComboBox x:Name="ThemeCombo" Header="Theme" HorizontalAlignment="Stretch"
+                                                  SelectionChanged="Theme_Changed">
+                                            <x:String>Use system setting</x:String>
+                                            <x:String>Light</x:String>
+                                            <x:String>Dark</x:String>
+                                        </ComboBox>
+                                    </StackPanel>
+
+                                    <StackPanel Spacing="4">
+                                        <TextBlock Text="Behavior" Style="{StaticResource BodyStrongTextBlockStyle}" />
+                                        <ToggleSwitch x:Name="TrayToggle" Header="Close to system tray" Toggled="Tray_Toggled" />
+                                        <ToggleSwitch x:Name="StartupToggle" Header="Start with Windows" Toggled="Startup_Toggled" />
+                                        <TextBlock TextWrapping="Wrap" Style="{StaticResource CaptionTextBlockStyle}"
+                                                   Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                                   Text="Starts hidden in the system tray. If you move the app folder, turn this on again." />
+                                    </StackPanel>
+
+                                    <StackPanel Spacing="8">
+                                        <TextBlock Text="Pasting" Style="{StaticResource BodyStrongTextBlockStyle}" />
+                                        <TextBlock TextWrapping="Wrap" Style="{StaticResource CaptionTextBlockStyle}"
+                                                   Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                                   Text="Rich-text apps (Word, Outlook, Gmail, Teams…) always get formatted text. Apps that only accept plain text get:" />
+                                        <RadioButtons x:Name="PlainModeRadios" SelectionChanged="PlainMode_Changed">
+                                            <x:String>Markdown source (Discord, Slack, Obsidian, GitHub…)</x:String>
+                                            <x:String>Plain text without Markdown symbols</x:String>
+                                        </RadioButtons>
+                                    </StackPanel>
                                 </StackPanel>
                             </Flyout>
                         </Button.Flyout>

@@ -101,11 +101,18 @@ internal static class SnippetStore
 
 public enum PlainTextMode { MarkdownSource, StrippedText }
 
+public enum AppTheme { System, Light, Dark }
+
 /// <summary>App settings (settings.json next to snippets.json).</summary>
 public class AppSettings
 {
     /// <summary>What apps that only accept plain text receive.</summary>
     public PlainTextMode PlainText { get; set; } = PlainTextMode.MarkdownSource;
+
+    public AppTheme Theme { get; set; } = AppTheme.System;
+
+    /// <summary>Closing the window hides it to the tray instead of exiting.</summary>
+    public bool CloseToTray { get; set; } = true;
 
     public static AppSettings Current { get; private set; } = Load();
 

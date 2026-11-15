@@ -11,6 +11,8 @@ public partial class App : Application
     protected override void OnLaunched(LaunchActivatedEventArgs args)
     {
         _window = new MainWindow();
-        _window.Activate();
+        // Launched at Windows startup: stay hidden in the tray
+        if (!Environment.GetCommandLineArgs().Contains(Startup.TrayArg))
+            _window.Activate();
     }
 }

@@ -2,11 +2,17 @@ using System.Runtime.InteropServices;
 
 namespace TextExpander;
 
-/// <summary>Enforces a minimum window size (DPI-aware) by handling WM_GETMINMAXINFO.</summary>
-internal static class WindowMinSize
+/// <summary>
+/// Hooks the main window's WndProc: enforces a minimum size (DPI-aware) and
+/// lets other components (tray icon) handle window messages.
+/// </summary>
+internal static class WindowHook
 {
     private const int GWLP_WNDPROC = -4;
     private const uint WM_GETMINMAXINFO = 0x0024;
+
+    /// <summary>Return true if the message was handled.</summary>
+    public static Func<uint, IntPtr, IntPtr, bool>? Handler;
 
     private delegate IntPtr WndProc(IntPtr hWnd, uint msg, IntPtr wParam, IntPtr lParam);
     private static WndProc? _proc;   // keep alive (GC)
@@ -30,6 +36,11 @@ internal static class WindowMinSize
             mmi.ptMinTrackSize.X = (int)(_minW * dpi / 96);
             mmi.ptMinTrackSize.Y = (int)(_minH * dpi / 96);
             Marshal.StructureToPtr(mmi, lParam, false);
+        }
+        else
+        {
+            try { if (Handler?.Invoke(msg, wParam, lParam) == true) return IntPtr.Zero; }
+            catch (Exception ex) { Program.Log(ex); }
         }
         return CallWindowProc(_oldProc, hWnd, msg, wParam, lParam);
     }

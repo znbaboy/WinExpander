@@ -40,22 +40,58 @@ jobs:
           Get-ChildItem $d -Recurse -Include *.pri,*.xbf | ForEach-Object { $_.FullName }
           if (-not (Test-Path "$d/TextExpander.pri")) { throw 'TextExpander.pri missing from publish output' }
 
-      - name: Smoke test (launch for 15s)
+      - name: Smoke test (launch, single instance, close to tray, --tray)
         if: matrix.arch == 'x64'
-        shell: pwsh
+        shell: powershell
         env:
           TEXTEXPANDER_NO_DIALOG: '1'
         run: |
+          Add-Type @"
+          using System; using System.Runtime.InteropServices;
+          public static class U {
+            [DllImport("user32.dll")] public static extern bool PostMessage(IntPtr h, uint m, IntPtr w, IntPtr l);
+            [DllImport("user32.dll")] public static extern bool IsWindowVisible(IntPtr h);
+          }
+          "@
           $d = Resolve-Path 'publish/TextExpander'
-          $p = Start-Process "$d/TextExpander.exe" -PassThru
+          $exe = "$d\TextExpander.exe"
+          function Fail($m) { if (Test-Path "$d\crash.log") { Get-Content "$d\crash.log" }; throw $m }
+
+          $p = Start-Process $exe -PassThru
           Start-Sleep 15
-          $log = "$d/crash.log"
-          if (Test-Path $log) { Get-Content $log }
-          if ($p.HasExited) { throw "App exited early with code $($p.ExitCode)" }
-          Write-Host "App still running after 15s - OK"
+          if ($p.HasExited) { Fail "App exited early with code $($p.ExitCode)" }
+          $p.Refresh(); $h = $p.MainWindowHandle
+          if (-not [U]::IsWindowVisible($h)) { Fail 'Window not visible' }
+          Write-Host 'Launch OK'
+
+          $p2 = Start-Process $exe -PassThru
+          Start-Sleep 5
+          if (-not $p2.HasExited) { Stop-Process $p2 -Force; Fail 'Second instance did not exit' }
+          Write-Host 'Single instance OK'
+
+          [U]::PostMessage($h, 0x10, [IntPtr]::Zero, [IntPtr]::Zero) | Out-Null   # WM_CLOSE
+          Start-Sleep 3
+          if ($p.HasExited) { Fail 'Closing exited the app instead of hiding to tray' }
+          if ([U]::IsWindowVisible($h)) { Fail 'Window still visible after close' }
+          Write-Host 'Close to tray OK'
+
+          $p3 = Start-Process $exe -PassThru   # should bring the hidden window back
+          Start-Sleep 4
+          if (-not [U]::IsWindowVisible($h)) { Fail 'Second launch did not restore the window' }
+          Write-Host 'Restore from second launch OK'
           Stop-Process $p -Force
           Start-Sleep 2
-          Remove-Item $log, "$d/snippets.json" -ErrorAction SilentlyContinue
+
+          $p = Start-Process $exe -ArgumentList '--tray' -PassThru
+          Start-Sleep 10
+          if ($p.HasExited) { Fail '--tray launch exited' }
+          $p.Refresh()
+          if ($p.MainWindowHandle -ne [IntPtr]::Zero -and [U]::IsWindowVisible($p.MainWindowHandle)) { Fail '--tray showed the window' }
+          Write-Host '--tray OK'
+          Stop-Process $p -Force
+          Start-Sleep 2
+          if (Test-Path "$d\crash.log") { Get-Content "$d\crash.log"; throw 'crash.log written' }
+          Remove-Item "$d\snippets.json", "$d\settings.json" -ErrorAction SilentlyContinue
 
       - name: Expansion test (Notepad)
         if: matrix.arch == 'x64'
@@ -137,8 +173,6 @@ jobs:
             @{ Trigger = ';table'; Text = "| Plan | Price |`n|---|---|`n| Free | `$0 |`n| Pro | `$5 |" }
           )
           $demo | ConvertTo-Json | Set-Content "$d/snippets.json" -Encoding UTF8
-          $app = Start-Process "$d/TextExpander.exe" -PassThru
-          Start-Sleep 12
           Add-Type @"
           using System; using System.Runtime.InteropServices;
           public static class W {
@@ -148,19 +182,24 @@ jobs:
             public struct RECT { public int L, T, R, B; }
           }
           "@
-          $app.Refresh(); $h = $app.MainWindowHandle
-          [W]::SetWindowPos($h, [IntPtr]::Zero, 40, 20, 980, 660, 0x40) | Out-Null
-          [W]::SetForegroundWindow($h) | Out-Null
-          Start-Sleep 3
-          $r = New-Object W+RECT
-          [W]::DwmGetWindowAttribute($h, 9, [ref]$r, 16) | Out-Null
           Add-Type -AssemblyName System.Drawing
-          $w = $r.R - $r.L; $hh = $r.B - $r.T
-          $bmp = New-Object System.Drawing.Bitmap $w, $hh
-          [System.Drawing.Graphics]::FromImage($bmp).CopyFromScreen($r.L, $r.T, 0, 0, (New-Object System.Drawing.Size $w, $hh))
-          $bmp.Save("$PWD/screenshot.png")
-          Stop-Process $app -Force
-          Start-Sleep 2
+          foreach ($t in @(@{ Name = 'screenshot'; Theme = 2 }, @{ Name = 'screenshot-light'; Theme = 1 })) {
+            "{ `"Theme`": $($t.Theme) }" | Set-Content "$d/settings.json" -Encoding UTF8
+            $app = Start-Process "$d/TextExpander.exe" -PassThru
+            Start-Sleep 12
+            $app.Refresh(); $h = $app.MainWindowHandle
+            [W]::SetWindowPos($h, [IntPtr]::Zero, 40, 20, 980, 660, 0x40) | Out-Null
+            [W]::SetForegroundWindow($h) | Out-Null
+            Start-Sleep 3
+            $r = New-Object W+RECT
+            [W]::DwmGetWindowAttribute($h, 9, [ref]$r, 16) | Out-Null
+            $w = $r.R - $r.L; $hh = $r.B - $r.T
+            $bmp = New-Object System.Drawing.Bitmap $w, $hh
+            [System.Drawing.Graphics]::FromImage($bmp).CopyFromScreen($r.L, $r.T, 0, 0, (New-Object System.Drawing.Size $w, $hh))
+            $bmp.Save("$PWD/$($t.Name).png")
+            Stop-Process $app -Force
+            Start-Sleep 2
+          }
           Remove-Item "$d/snippets.json", "$d/settings.json", "$d/crash.log" -ErrorAction SilentlyContinue
 
       - uses: actions/upload-artifact@v4
@@ -168,7 +207,7 @@ jobs:
         continue-on-error: true
         with:
           name: screenshot
-          path: screenshot.png
+          path: screenshot*.png
 
       - name: Zip
         run: Compress-Archive -Path publish/TextExpander/* -DestinationPath TextExpander-portable-${{ matrix.arch }}.zip
