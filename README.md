@@ -1,58 +1,29 @@
 # WinExpander
 
-*(formerly Text Expander)*
-
-A minimal, portable, open-source text expander for Windows, built with WinUI 3.
-
-Type a trigger (e.g. `;sig`) anywhere → it's replaced with your snippet.
+Minimal, portable text expander for Windows 11. Type a trigger like `;sig` anywhere and it becomes your snippet.
 
 ![WinExpander in dark mode](docs/screenshot.png)
 
 ## Download
-Grab `WinExpander-portable-x64.zip` (or `arm64`) from **Releases**, unzip anywhere, run `WinExpander.exe`.
-No installer, no .NET or Windows App SDK install needed.
+Get the zip from [Releases](../../releases/latest) (x64 or arm64), unzip, run `WinExpander.exe`. No install.
 
 ## Features
-- Fluent design (Mica, custom title bar), light/dark theme
-- Snippets written in **Markdown** (CommonMark + tables, task lists, strikethrough, emoji, autolinks…)
-- Live preview and a formatting toolbar (Ctrl+B / Ctrl+I / Ctrl+K)
-- Expansions paste as **rich text** in apps that support it (Word, Outlook, Gmail, Teams…) and as clean plain text everywhere else (Notepad, terminals)
-- Your clipboard is restored after each expansion, and nothing lands in Win+V history
-- Auto-saves as you type
-- Light / dark / system theme
-- Close to system tray (Open · Pause expansion · Exit), single instance
-- Optional start with Windows (starts hidden in the tray)
+- Markdown snippets with live preview
+- Rich text in Word, Outlook, Gmail, etc.; Markdown or plain text elsewhere
+- Clipboard restored after each expansion
+- Light/dark theme, tray icon, start with Windows
+- Portable: snippets saved in `snippets.json` next to the exe
 
-## Use
-- **New snippet** (Ctrl+N), set a trigger like `;sig`, write the body in Markdown.
-- Type the trigger anywhere and it gets replaced.
-- Toggle switch pauses expansion. Expansion is disabled while the app itself is focused.
-- Snippets are saved to `snippets.json` next to the exe (portable). If that folder isn't writable, it falls back to `%LOCALAPPDATA%\WinExpander\`.
-- Settings (⚙ bottom-left): theme, close to tray, start with Windows, plain-text paste mode.
-
-## Build from source
-Requires Windows 10 1809+ and the .NET 8 SDK.
+## Build
+Requires Visual Studio 2022 (or Build Tools) with the .NET desktop workload.
 
 ```
-# run
-dotnet run -p:Platform=x64
-
-# portable build (installs .NET 8 SDK locally if missing)
 powershell -ExecutionPolicy Bypass -File .\build.ps1
-
-# or manually
-dotnet publish -c Release -r win-x64 -p:Platform=x64 -o publish\WinExpander
 ```
-
-Or open in Visual Studio 2022 (with the "WinUI application development" workload) and press F5.
-
-## Releases
-GitHub Actions builds portable zips on every push. Push a tag like `v1.0.0` to publish a release with the zips attached.
 
 ## Notes
-- Uses a global low-level keyboard hook + `SendInput`. Nothing is logged or sent anywhere.
-- Won't expand inside apps running as admin unless this app is also run as admin.
-- Prefix triggers with a symbol (`;`, `//`) so they don't fire inside normal words.
+- Won't expand in apps running as admin unless WinExpander is too.
+- Nothing is logged or sent anywhere.
 
 ## License
-MIT. See [LICENSE](LICENSE).
+[MIT](LICENSE)
