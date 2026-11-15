@@ -4,6 +4,10 @@ Minimal, portable text expander for Windows 11. Type a trigger like `;sig` anywh
 
 ![WinExpander in dark mode](docs/screenshot.png)
 
+| Light | Settings |
+|---|---|
+| ![Light theme](docs/screenshot-light.png) | ![Settings](docs/settings.png) |
+
 ## Download
 Get the zip from [Releases](../../releases/latest) (x64 or arm64), unzip, run `WinExpander.exe`. No install.
 
