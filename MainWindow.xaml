@@ -2,7 +2,6 @@
     x:Class="WinExpander.MainWindow"
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-    xmlns:local="using:WinExpander"
     Title="WinExpander">
 
     <Window.SystemBackdrop>
@@ -26,212 +25,18 @@
                        Style="{StaticResource CaptionTextBlockStyle}" />
         </Grid>
 
-        <Grid Grid.Row="1" Padding="12,0,12,12" ColumnSpacing="12">
-            <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="260" />
-                <ColumnDefinition Width="*" />
-            </Grid.ColumnDefinitions>
-
-            <!-- Sidebar -->
-            <Grid RowSpacing="8">
-                <Grid.RowDefinitions>
-                    <RowDefinition Height="Auto" />
-                    <RowDefinition Height="*" />
-                    <RowDefinition Height="Auto" />
-                </Grid.RowDefinitions>
-
-                <Button HorizontalAlignment="Stretch" Style="{StaticResource AccentButtonStyle}" Click="Add_Click">
-                    <StackPanel Orientation="Horizontal" Spacing="8">
-                        <SymbolIcon Symbol="Add" />
-                        <TextBlock Text="New snippet" />
-                    </StackPanel>
-                    <Button.KeyboardAccelerators>
-                        <KeyboardAccelerator Modifiers="Control" Key="N" />
-                    </Button.KeyboardAccelerators>
-                </Button>
-
-                <ListView x:Name="SnippetList" Grid.Row="1" Margin="-4,0"
-                          ItemsSource="{x:Bind Snippets}"
-                          SelectionChanged="SnippetList_SelectionChanged">
-                    <ListView.ItemTemplate>
-                        <DataTemplate x:DataType="local:Snippet">
-                            <StackPanel Padding="0,8" Spacing="2">
-                                <TextBlock Text="{x:Bind DisplayTrigger, Mode=OneWay}"
-                                           FontFamily="Cascadia Mono, Consolas" FontWeight="SemiBold" />
-                                <TextBlock Text="{x:Bind Summary, Mode=OneWay}"
-                                           Style="{StaticResource CaptionTextBlockStyle}"
-                                           Foreground="{ThemeResource TextFillColorSecondaryBrush}"
-                                           TextWrapping="NoWrap" TextTrimming="CharacterEllipsis" />
-                            </StackPanel>
-                        </DataTemplate>
-                    </ListView.ItemTemplate>
-                </ListView>
-
-                <Grid Grid.Row="2" Margin="4,0,0,0">
-                    <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="*" />
-                        <ColumnDefinition Width="Auto" />
-                    </Grid.ColumnDefinitions>
-                    <ToggleSwitch x:Name="EnabledToggle"
-                                  OnContent="Expansion on" OffContent="Expansion paused"
-                                  Toggled="EnabledToggle_Toggled" />
-                    <Button Grid.Column="1" VerticalAlignment="Center" ToolTipService.ToolTip="Settings"
-                            Background="Transparent" BorderThickness="0">
-                        <SymbolIcon Symbol="Setting" />
-                        <Button.Flyout>
-                            <Flyout Placement="TopEdgeAlignedRight">
-                                <StackPanel Width="320" Spacing="20">
-                                    <StackPanel Spacing="8">
-                                        <TextBlock Text="Appearance" Style="{StaticResource BodyStrongTextBlockStyle}" />
-                                        <ComboBox x:Name="ThemeCombo" Header="Theme" HorizontalAlignment="Stretch"
-                                                  SelectionChanged="Theme_Changed">
-                                            <x:String>Use system setting</x:String>
-                                            <x:String>Light</x:String>
-                                            <x:String>Dark</x:String>
-                                        </ComboBox>
-                                    </StackPanel>
-
-                                    <StackPanel Spacing="4">
-                                        <TextBlock Text="Behavior" Style="{StaticResource BodyStrongTextBlockStyle}" />
-                                        <ToggleSwitch x:Name="TrayToggle" Header="Close to system tray" Toggled="Tray_Toggled" />
-                                        <ToggleSwitch x:Name="StartupToggle" Header="Start with Windows" Toggled="Startup_Toggled" />
-                                        <TextBlock TextWrapping="Wrap" Style="{StaticResource CaptionTextBlockStyle}"
-                                                   Foreground="{ThemeResource TextFillColorSecondaryBrush}"
-                                                   Text="Starts hidden in the system tray. If you move the app folder, turn this on again." />
-                                    </StackPanel>
-
-                                    <StackPanel Spacing="8">
-                                        <TextBlock Text="Pasting" Style="{StaticResource BodyStrongTextBlockStyle}" />
-                                        <TextBlock TextWrapping="Wrap" Style="{StaticResource CaptionTextBlockStyle}"
-                                                   Foreground="{ThemeResource TextFillColorSecondaryBrush}"
-                                                   Text="Rich-text apps (Word, Outlook, Gmail, Teams…) always get formatted text. Apps that only accept plain text get:" />
-                                        <RadioButtons x:Name="PlainModeRadios" SelectionChanged="PlainMode_Changed">
-                                            <x:String>Markdown source (Discord, Slack, Obsidian, GitHub…)</x:String>
-                                            <x:String>Plain text without Markdown symbols</x:String>
-                                        </RadioButtons>
-                                    </StackPanel>
-                                </StackPanel>
-                            </Flyout>
-                        </Button.Flyout>
-                    </Button>
-                </Grid>
-            </Grid>
-
-            <!-- Editor card -->
-            <Grid Grid.Column="1"
-                  Background="{ThemeResource LayerFillColorDefaultBrush}"
-                  BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
-                  BorderThickness="1" CornerRadius="8">
-
-                <StackPanel x:Name="EmptyState" HorizontalAlignment="Center" VerticalAlignment="Center" Spacing="8">
-                    <FontIcon Glyph="&#xE70F;" FontSize="32" Foreground="{ThemeResource TextFillColorTertiaryBrush}" />
-                    <TextBlock Text="Create a snippet to get started" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
-                </StackPanel>
-
-                <Grid x:Name="EditorPane" Padding="20,16,20,20" RowSpacing="12" Visibility="Collapsed">
-                    <Grid.RowDefinitions>
-                        <RowDefinition Height="Auto" />
-                        <RowDefinition Height="Auto" />
-                        <RowDefinition Height="*" />
-                    </Grid.RowDefinitions>
-
-                    <!-- Trigger + delete -->
-                    <Grid ColumnSpacing="8">
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="*" />
-                            <ColumnDefinition Width="Auto" />
-                            <ColumnDefinition Width="Auto" />
-                        </Grid.ColumnDefinitions>
-                        <TextBox x:Name="TriggerBox" Header="Trigger" PlaceholderText=";abbr"
-                                 Width="280" HorizontalAlignment="Left"
-                                 FontFamily="Cascadia Mono, Consolas" IsSpellCheckEnabled="False"
-                                 TextChanged="TriggerBox_TextChanged" />
-                        <TextBlock x:Name="SavedText" Grid.Column="1" VerticalAlignment="Bottom" Margin="0,0,8,6"
-                                   Style="{StaticResource CaptionTextBlockStyle}"
-                                   Foreground="{ThemeResource TextFillColorTertiaryBrush}" />
-                        <Button Grid.Column="2" VerticalAlignment="Bottom" Click="Delete_Click"
-                                ToolTipService.ToolTip="Delete snippet">
-                            <SymbolIcon Symbol="Delete" />
-                        </Button>
-                    </Grid>
-
-                    <!-- Markdown toolbar -->
-                    <CommandBar Grid.Row="1" HorizontalAlignment="Left" Margin="-4,0,0,0"
-                                DefaultLabelPosition="Collapsed" Background="Transparent"
-                                OverflowButtonVisibility="Collapsed">
-                        <AppBarButton Label="Bold (Ctrl+B)" Tag="bold" Click="Format_Click" Icon="Bold">
-                            <AppBarButton.KeyboardAccelerators>
-                                <KeyboardAccelerator Modifiers="Control" Key="B" />
-                            </AppBarButton.KeyboardAccelerators>
-                        </AppBarButton>
-                        <AppBarButton Label="Italic (Ctrl+I)" Tag="italic" Click="Format_Click" Icon="Italic">
-                            <AppBarButton.KeyboardAccelerators>
-                                <KeyboardAccelerator Modifiers="Control" Key="I" />
-                            </AppBarButton.KeyboardAccelerators>
-                        </AppBarButton>
-                        <AppBarButton Label="Strikethrough" Tag="strike" Click="Format_Click">
-                            <AppBarButton.Icon><FontIcon Glyph="&#xEDE0;" /></AppBarButton.Icon>
-                        </AppBarButton>
-                        <AppBarButton Label="Heading" Tag="heading" Click="Format_Click" Icon="Font" />
-                        <AppBarSeparator />
-                        <AppBarButton Label="Bulleted list" Tag="list" Click="Format_Click" Icon="List" />
-                        <AppBarButton Label="Numbered list" Tag="numbered" Click="Format_Click">
-                            <AppBarButton.Icon><FontIcon Glyph="&#xE9D5;" /></AppBarButton.Icon>
-                        </AppBarButton>
-                        <AppBarButton Label="Task list" Tag="task" Click="Format_Click">
-                            <AppBarButton.Icon><FontIcon Glyph="&#xE73A;" /></AppBarButton.Icon>
-                        </AppBarButton>
-                        <AppBarButton Label="Quote" Tag="quote" Click="Format_Click">
-                            <AppBarButton.Icon><FontIcon Glyph="&#xE9B2;" /></AppBarButton.Icon>
-                        </AppBarButton>
-                        <AppBarSeparator />
-                        <AppBarButton Label="Link (Ctrl+K)" Tag="link" Click="Format_Click" Icon="Link">
-                            <AppBarButton.KeyboardAccelerators>
-                                <KeyboardAccelerator Modifiers="Control" Key="K" />
-                            </AppBarButton.KeyboardAccelerators>
-                        </AppBarButton>
-                        <AppBarButton Label="Inline code" Tag="code" Click="Format_Click">
-                            <AppBarButton.Icon><FontIcon Glyph="&#xE943;" /></AppBarButton.Icon>
-                        </AppBarButton>
-                        <AppBarButton Label="Table" Tag="table" Click="Format_Click">
-                            <AppBarButton.Icon><FontIcon Glyph="&#xE80A;" /></AppBarButton.Icon>
-                        </AppBarButton>
-                    </CommandBar>
-
-                    <!-- Editor | Preview -->
-                    <Grid Grid.Row="2" ColumnSpacing="16" RowSpacing="6">
-                        <Grid.RowDefinitions>
-                            <RowDefinition Height="Auto" />
-                            <RowDefinition Height="*" />
-                        </Grid.RowDefinitions>
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="*" />
-                            <ColumnDefinition Width="*" />
-                        </Grid.ColumnDefinitions>
-
-                        <TextBlock Text="Markdown" Style="{StaticResource BodyStrongTextBlockStyle}" />
-                        <TextBlock Grid.Column="1" Text="Preview" Style="{StaticResource BodyStrongTextBlockStyle}" />
-
-                        <TextBox x:Name="Editor" Grid.Row="1"
-                                 AcceptsReturn="True" TextWrapping="Wrap" IsSpellCheckEnabled="False"
-                                 FontFamily="Cascadia Mono, Consolas" FontSize="13"
-                                 PlaceholderText="Write your snippet in Markdown…"
-                                 ScrollViewer.VerticalScrollBarVisibility="Auto"
-                                 TextChanged="Editor_TextChanged" />
-
-                        <Border Grid.Row="1" Grid.Column="1" CornerRadius="4" BorderThickness="1"
-                                BorderBrush="{ThemeResource ControlStrokeColorDefaultBrush}"
-                                Background="{ThemeResource CardBackgroundFillColorSecondaryBrush}">
-                            <Grid>
-                                <WebView2 x:Name="Preview" />
-                                <TextBlock x:Name="PreviewError" Visibility="Collapsed" Margin="12" TextWrapping="Wrap"
-                                           Foreground="{ThemeResource TextFillColorSecondaryBrush}"
-                                           Text="Preview needs the Microsoft Edge WebView2 Runtime." />
-                            </Grid>
-                        </Border>
-                    </Grid>
-                </Grid>
-            </Grid>
-        </Grid>
+        <NavigationView x:Name="Nav" Grid.Row="1"
+                        PaneDisplayMode="LeftCompact" IsPaneToggleButtonVisible="False"
+                        IsBackButtonVisible="Collapsed" IsSettingsVisible="True"
+                        SelectionChanged="Nav_SelectionChanged">
+            <NavigationView.MenuItems>
+                <NavigationViewItem x:Name="SnippetsItem" Content="Snippets" ToolTipService.ToolTip="Snippets">
+                    <NavigationViewItem.Icon>
+                        <FontIcon Glyph="&#xE8A5;" />
+                    </NavigationViewItem.Icon>
+                </NavigationViewItem>
+            </NavigationView.MenuItems>
+            <Frame x:Name="ContentFrame" />
+        </NavigationView>
     </Grid>
 </Window>

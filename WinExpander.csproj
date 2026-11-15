@@ -11,6 +11,9 @@
     <WindowsAppSDKSelfContained>true</WindowsAppSDKSelfContained>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
+    <Version>1.1.0</Version>
+    <!-- MVVM Toolkit field-based [ObservableProperty] AOT hint; not relevant (no AOT) -->
+    <NoWarn>$(NoWarn);MVVMTK0045</NoWarn>
     <!-- Portable publish: self-contained, no .NET or Windows App SDK install needed -->
     <SelfContained>true</SelfContained>
     <PublishReadyToRun>false</PublishReadyToRun>
@@ -25,6 +28,9 @@
     <PackageReference Include="Microsoft.WindowsAppSDK" Version="1.6.250205002" />
     <PackageReference Include="Microsoft.Windows.SDK.BuildTools" Version="10.0.26100.1742" />
     <PackageReference Include="Markdig" Version="0.38.0" />
+    <PackageReference Include="CommunityToolkit.Mvvm" Version="8.4.0" />
+    <PackageReference Include="CommunityToolkit.WinUI.Controls.SettingsControls" Version="8.2.250402" />
+    <PackageReference Include="CommunityToolkit.WinUI.Controls.Sizers" Version="8.2.250402" />
   </ItemGroup>
 
   <ItemGroup>

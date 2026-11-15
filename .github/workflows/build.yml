@@ -188,9 +188,9 @@ jobs:
           }
           "@
           Add-Type -AssemblyName System.Drawing
-          foreach ($t in @(@{ Name = 'screenshot'; Theme = 2 }, @{ Name = 'screenshot-light'; Theme = 1 })) {
+          foreach ($t in @(@{ Name = 'screenshot'; Theme = 2; Args = '--x' }, @{ Name = 'screenshot-light'; Theme = 1; Args = '--x' }, @{ Name = 'screenshot-settings'; Theme = 2; Args = '--settings' })) {
             "{ `"Theme`": $($t.Theme) }" | Set-Content "$d/settings.json" -Encoding UTF8
-            $app = Start-Process "$d/WinExpander.exe" -PassThru
+            $app = Start-Process "$d/WinExpander.exe" -ArgumentList $t.Args -PassThru
             Start-Sleep 12
             $app.Refresh(); $h = $app.MainWindowHandle
             [W]::SetWindowPos($h, [IntPtr]::Zero, 40, 20, 980, 660, 0x40) | Out-Null

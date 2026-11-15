@@ -1,30 +1,25 @@
-using System.Collections.ObjectModel;
-using Microsoft.UI.Dispatching;
+using System.ComponentModel;
+using System.Runtime.InteropServices;
 using Microsoft.UI.Windowing;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
-using Microsoft.Web.WebView2.Core;
+using Microsoft.UI.Xaml.Media.Animation;
 
 namespace WinExpander;
 
 public sealed partial class MainWindow : Window
 {
-    public ObservableCollection<Snippet> Snippets { get; } = SnippetStore.Load();
+    public MainViewModel ViewModel { get; }
 
-    private readonly Expander _expander;
-    private readonly DispatcherQueueTimer _saveTimer;
-    private readonly DispatcherQueueTimer _previewTimer;
-    private Snippet? _current;
-    private bool _loading;
-    private bool _previewReady;
-    private bool _exiting;
-    private bool _initializing = true;
     private readonly IntPtr _hwnd;
+    private readonly Expander _expander;
     private readonly TrayIcon _tray;
+    private bool _exiting;
 
     public MainWindow()
     {
         InitializeComponent();
+        ViewModel = MainViewModel.Instance;
 
         ExtendsContentIntoTitleBar = true;
         SetTitleBar(AppTitleBar);
@@ -32,115 +27,72 @@ public sealed partial class MainWindow : Window
         AppWindow.SetIcon(Path.Combine(AppContext.BaseDirectory, "Assets", "app.ico"));
         AppWindow.Resize(new Windows.Graphics.SizeInt32(1100, 720));
 
-        var hwnd = _hwnd = WinRT.Interop.WindowNative.GetWindowHandle(this);
-        WindowHook.Apply(hwnd, 760, 480);
-        ClipboardHelper.Owner = hwnd;
-        _expander = new Expander(() => Snippets, DispatcherQueue, hwnd);
-        EnabledToggle.IsOn = true; // after _expander exists (Toggled fires immediately)
+        _hwnd = WinRT.Interop.WindowNative.GetWindowHandle(this);
+        WindowHook.Apply(_hwnd, 760, 480);
+        ClipboardHelper.Owner = _hwnd;
 
-        // Tray icon
-        _tray = new TrayIcon(hwnd, Path.Combine(AppContext.BaseDirectory, "Assets", "app.ico"));
-        _tray.IsPaused = () => !EnabledToggle.IsOn;
+        _expander = new Expander(() => ViewModel.Snippets, DispatcherQueue, _hwnd)
+        {
+            Enabled = ViewModel.ExpansionEnabled
+        };
+
+        _tray = new TrayIcon(_hwnd, Path.Combine(AppContext.BaseDirectory, "Assets", "app.ico"))
+        {
+            IsPaused = () => !ViewModel.ExpansionEnabled
+        };
         _tray.OpenRequested += ShowFromTray;
-        _tray.PauseToggled += () => EnabledToggle.IsOn = !EnabledToggle.IsOn;
+        _tray.PauseToggled += () => ViewModel.ExpansionEnabled = !ViewModel.ExpansionEnabled;
         _tray.ExitRequested += ExitApp;
         WindowHook.Handler = _tray.HandleMessage;
 
-        // Settings
-        var settings = AppSettings.Current;
-        PlainModeRadios.SelectedIndex = (int)settings.PlainText;
-        ThemeCombo.SelectedIndex = (int)settings.Theme;
-        TrayToggle.IsOn = settings.CloseToTray;
-        Startup.MigrateLegacy();
-        StartupToggle.IsOn = Startup.IsEnabled;
-        ApplyTheme(settings.Theme);
+        ViewModel.PropertyChanged += OnViewModelChanged;
+        ApplyTheme();
         Root.ActualThemeChanged += (_, _) => UpdateCaptionButtons();
-        UpdateCaptionButtons();
-        _initializing = false;
+
+        Nav.SelectedItem = SnippetsItem;
+        // Hidden arg used by CI screenshots (SettingsItem exists only after the template loads)
+        if (Environment.GetCommandLineArgs().Contains("--settings"))
+            Nav.Loaded += (_, _) => Nav.SelectedItem = Nav.SettingsItem;
 
         AppWindow.Closing += (_, e) =>
         {
-            if (!_exiting && AppSettings.Current.CloseToTray)
+            if (!_exiting && ViewModel.CloseToTray)
             {
                 e.Cancel = true;
-                Save();
+                ViewModel.SaveNow();
                 AppWindow.Hide();
             }
         };
 
-        _saveTimer = CreateTimer(600, Save);
-        _previewTimer = CreateTimer(150, UpdatePreview);
-        Root.ActualThemeChanged += (_, _) => UpdatePreview();
-        _ = InitPreviewAsync();
-
-        if (Snippets.Count > 0) SnippetList.SelectedIndex = 0;
-        else ShowEditor();
-
         Closed += (_, _) =>
         {
-            Save();
+            ViewModel.SaveNow();
             _expander.Dispose();
             _tray.Dispose();
         };
     }
 
-    private DispatcherQueueTimer CreateTimer(int ms, Action action)
+    private void OnViewModelChanged(object? sender, PropertyChangedEventArgs e)
     {
-        var t = DispatcherQueue.CreateTimer();
-        t.Interval = TimeSpan.FromMilliseconds(ms);
-        t.IsRepeating = false;
-        t.Tick += (_, _) => action();
-        return t;
+        switch (e.PropertyName)
+        {
+            case nameof(MainViewModel.ExpansionEnabled):
+                _expander.Enabled = ViewModel.ExpansionEnabled;
+                _tray.SetTooltip(ViewModel.ExpansionEnabled ? "WinExpander" : "WinExpander (paused)");
+                break;
+            case nameof(MainViewModel.ThemeIndex):
+                ApplyTheme();
+                break;
+        }
     }
 
-    private static void Restart(DispatcherQueueTimer t) { t.Stop(); t.Start(); }
+    // ---------- Navigation ----------
 
-    // ---------- Snippet list ----------
-
-    private void SnippetList_SelectionChanged(object sender, SelectionChangedEventArgs e)
+    private void Nav_SelectionChanged(NavigationView sender, NavigationViewSelectionChangedEventArgs args)
     {
-        _current = SnippetList.SelectedItem as Snippet;
-        ShowEditor();
-    }
-
-    private void ShowEditor()
-    {
-        _loading = true;
-        TriggerBox.Text = _current?.Trigger ?? "";
-        Editor.Text = _current?.Text ?? "";
-        _loading = false;
-
-        EditorPane.Visibility = _current != null ? Visibility.Visible : Visibility.Collapsed;
-        EmptyState.Visibility = _current != null ? Visibility.Collapsed : Visibility.Visible;
-        SavedText.Text = "";
-        UpdatePreview();
-    }
-
-    private void Add_Click(object sender, RoutedEventArgs e)
-    {
-        var s = new Snippet { Trigger = ";new" };
-        Snippets.Add(s);
-        SnippetList.SelectedItem = s;
-        SnippetList.ScrollIntoView(s);
-        TriggerBox.Focus(FocusState.Programmatic);
-        TriggerBox.SelectAll();
-        Save();
-    }
-
-    private void Delete_Click(object sender, RoutedEventArgs e)
-    {
-        if (_current == null) return;
-        int i = Snippets.IndexOf(_current);
-        Snippets.Remove(_current);
-        if (Snippets.Count > 0) SnippetList.SelectedIndex = Math.Min(i, Snippets.Count - 1);
-        else { _current = null; ShowEditor(); }
-        Save();
-    }
-
-    private void EnabledToggle_Toggled(object sender, RoutedEventArgs e)
-    {
-        if (_expander != null) _expander.Enabled = EnabledToggle.IsOn;
-        _tray?.SetTooltip(EnabledToggle.IsOn ? "WinExpander" : "WinExpander (paused)");
+        var page = args.IsSettingsSelected ? typeof(SettingsPage) : typeof(SnippetsPage);
+        if (ContentFrame.CurrentSourcePageType != page)
+            ContentFrame.Navigate(page, null, new EntranceNavigationTransitionInfo());
     }
 
     // ---------- Tray / window ----------
@@ -158,21 +110,14 @@ public sealed partial class MainWindow : Window
         Close();
     }
 
-    [System.Runtime.InteropServices.DllImport("user32.dll")]
+    [DllImport("user32.dll")]
     private static extern bool SetForegroundWindow(IntPtr hWnd);
 
-    // ---------- Settings ----------
+    // ---------- Theme ----------
 
-    private void Theme_Changed(object sender, SelectionChangedEventArgs e)
+    private void ApplyTheme()
     {
-        if (_initializing || ThemeCombo.SelectedIndex < 0) return;
-        AppSettings.Current.Theme = (AppTheme)ThemeCombo.SelectedIndex;
-        AppSettings.Current.Save();
-        ApplyTheme(AppSettings.Current.Theme);
-    }
-
-    private void ApplyTheme(AppTheme theme)
-    {
+        var theme = (AppTheme)Math.Max(0, ViewModel.ThemeIndex);
         Root.RequestedTheme = theme switch
         {
             AppTheme.Light => ElementTheme.Light,
@@ -203,165 +148,5 @@ public sealed partial class MainWindow : Window
         tb.ButtonPressedBackgroundColor = dark
             ? Windows.UI.Color.FromArgb(0x0B, 0xFF, 0xFF, 0xFF)
             : Windows.UI.Color.FromArgb(0x0A, 0x00, 0x00, 0x00);
-    }
-
-    private void Tray_Toggled(object sender, RoutedEventArgs e)
-    {
-        if (_initializing) return;
-        AppSettings.Current.CloseToTray = TrayToggle.IsOn;
-        AppSettings.Current.Save();
-    }
-
-    private void Startup_Toggled(object sender, RoutedEventArgs e)
-    {
-        if (_initializing) return;
-        try { Startup.Set(StartupToggle.IsOn); }
-        catch (Exception ex)
-        {
-            Program.Log(ex);
-            _initializing = true;
-            StartupToggle.IsOn = Startup.IsEnabled;
-            _initializing = false;
-        }
-    }
-
-    private void PlainMode_Changed(object sender, SelectionChangedEventArgs e)
-    {
-        if (PlainModeRadios.SelectedIndex < 0) return;
-        AppSettings.Current.PlainText = (PlainTextMode)PlainModeRadios.SelectedIndex;
-        AppSettings.Current.Save();
-    }
-
-    // ---------- Editing ----------
-
-    private void TriggerBox_TextChanged(object sender, TextChangedEventArgs e)
-    {
-        if (_loading || _current == null) return;
-        _current.Trigger = TriggerBox.Text.Trim();
-        QueueSave();
-    }
-
-    private void Editor_TextChanged(object sender, TextChangedEventArgs e)
-    {
-        if (_loading || _current == null) return;
-        _current.Text = Editor.Text.Replace("\r\n", "\n").Replace('\r', '\n'); // TextBox uses \r internally
-        QueueSave();
-        Restart(_previewTimer);
-    }
-
-    private void QueueSave()
-    {
-        SavedText.Text = "Saving…";
-        Restart(_saveTimer);
-    }
-
-    private void Save()
-    {
-        try
-        {
-            SnippetStore.Save(Snippets);
-            SavedText.Text = "Saved";
-        }
-        catch (Exception ex)
-        {
-            SavedText.Text = "Couldn't save";
-            Program.Log(ex);
-        }
-    }
-
-    private void Format_Click(object sender, RoutedEventArgs e)
-    {
-        if (_current == null) return;
-        switch ((sender as FrameworkElement)?.Tag as string)
-        {
-            case "bold": Wrap("**", "**", "bold text"); break;
-            case "italic": Wrap("*", "*", "italic text"); break;
-            case "strike": Wrap("~~", "~~", "text"); break;
-            case "code": Wrap("`", "`", "code"); break;
-            case "link": Wrap("[", "](https://)", "link text"); break;
-            case "heading": PrefixLine("## "); break;
-            case "list": PrefixLine("- "); break;
-            case "numbered": PrefixLine("1. "); break;
-            case "task": PrefixLine("- [ ] "); break;
-            case "quote": PrefixLine("> "); break;
-            case "table": Insert("\r| Column | Column |\r|---|---|\r| Cell | Cell |\r"); break;
-        }
-    }
-
-    private void Wrap(string before, string after, string placeholder)
-    {
-        int start = Editor.SelectionStart;
-        string sel = Editor.SelectionLength > 0 ? Editor.SelectedText : placeholder;
-        Editor.SelectedText = before + sel + after;
-        Editor.Select(start + before.Length, sel.Length);
-        Editor.Focus(FocusState.Programmatic);
-    }
-
-    private void PrefixLine(string prefix)
-    {
-        string text = Editor.Text;
-        int caret = Editor.SelectionStart;
-        int lineStart = caret == 0 ? 0 : text.LastIndexOfAny(new[] { '\r', '\n' }, caret - 1) + 1;
-        Editor.Text = text.Insert(lineStart, prefix);
-        Editor.Select(caret + prefix.Length, 0);
-        Editor.Focus(FocusState.Programmatic);
-    }
-
-    private void Insert(string s)
-    {
-        int start = Editor.SelectionStart;
-        Editor.SelectedText = s;
-        Editor.Select(start + s.Length, 0);
-        Editor.Focus(FocusState.Programmatic);
-    }
-
-    // ---------- Preview ----------
-
-    private async Task InitPreviewAsync()
-    {
-        try
-        {
-            await Preview.EnsureCoreWebView2Async();
-            var core = Preview.CoreWebView2;
-            core.Settings.AreDefaultContextMenusEnabled = false;
-            core.Settings.AreDevToolsEnabled = false;
-            core.Settings.IsStatusBarEnabled = false;
-            core.NavigationStarting += OnPreviewNavigating;
-            core.NewWindowRequested += (_, a) => { a.Handled = true; OpenExternal(a.Uri); };
-            _previewReady = true;
-            UpdatePreview();
-        }
-        catch (Exception ex)
-        {
-            Program.Log(ex);
-            Preview.Visibility = Visibility.Collapsed;
-            PreviewError.Visibility = Visibility.Visible;
-        }
-    }
-
-    // Links in the preview open in the default browser
-    private void OnPreviewNavigating(CoreWebView2 sender, CoreWebView2NavigationStartingEventArgs a)
-    {
-        if (a.Uri.StartsWith("http", StringComparison.OrdinalIgnoreCase) ||
-            a.Uri.StartsWith("mailto:", StringComparison.OrdinalIgnoreCase))
-        {
-            a.Cancel = true;
-            OpenExternal(a.Uri);
-        }
-    }
-
-    private static void OpenExternal(string uri)
-    {
-        if (Uri.TryCreate(uri, UriKind.Absolute, out var u))
-            _ = Windows.System.Launcher.LaunchUriAsync(u);
-    }
-
-    private void UpdatePreview()
-    {
-        if (!_previewReady) return;
-        bool dark = Root.ActualTheme == ElementTheme.Dark;
-        Preview.CoreWebView2.Profile.PreferredColorScheme =
-            dark ? CoreWebView2PreferredColorScheme.Dark : CoreWebView2PreferredColorScheme.Light;
-        Preview.NavigateToString(PreviewPage.Build(Markdown.ToHtml(_current?.Text ?? ""), dark));
     }
 }

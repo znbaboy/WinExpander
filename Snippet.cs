@@ -1,12 +1,11 @@
 using System.Collections.ObjectModel;
-using System.ComponentModel;
-using System.Runtime.CompilerServices;
+using CommunityToolkit.Mvvm.ComponentModel;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 
 namespace WinExpander;
 
-public partial class Snippet : INotifyPropertyChanged
+public partial class Snippet : ObservableObject
 {
     private string _trigger = "";
     private string _text = "";
@@ -14,14 +13,18 @@ public partial class Snippet : INotifyPropertyChanged
     public string Trigger
     {
         get => _trigger;
-        set { if (_trigger != value) { _trigger = value; OnChanged(); OnChanged(nameof(DisplayTrigger)); } }
+        set { if (SetProperty(ref _trigger, value ?? "")) OnPropertyChanged(nameof(DisplayTrigger)); }
     }
 
-    /// <summary>Snippet body, written in Markdown.</summary>
+    /// <summary>Snippet body, written in Markdown (line endings normalized to \n).</summary>
     public string Text
     {
         get => _text;
-        set { if (_text != value) { _text = value; OnChanged(); OnChanged(nameof(Summary)); } }
+        set
+        {
+            var v = (value ?? "").Replace("\r\n", "\n").Replace('\r', '\n'); // TextBox uses \r internally
+            if (SetProperty(ref _text, v)) OnPropertyChanged(nameof(Summary));
+        }
     }
 
     [JsonIgnore]
@@ -38,10 +41,6 @@ public partial class Snippet : INotifyPropertyChanged
             return string.IsNullOrEmpty(line) ? "Empty snippet" : line;
         }
     }
-
-    public event PropertyChangedEventHandler? PropertyChanged;
-    private void OnChanged([CallerMemberName] string? name = null) =>
-        PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(name));
 }
 
 internal static class SnippetStore
