@@ -1,0 +1,185 @@
+name: build
+
+on:
+  push:
+    branches: [main]
+    tags: ['v*']
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: windows-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        arch: [x64, arm64]
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.x
+
+      - uses: microsoft/setup-msbuild@v2
+
+      - name: Publish portable
+        run: >
+          msbuild TextExpander.csproj /restore /t:Publish /m
+          /p:Configuration=Release /p:Platform=${{ matrix.arch }}
+          /p:RuntimeIdentifier=win-${{ matrix.arch }}
+          /p:PublishDir=${{ github.workspace }}\publish\TextExpander\
+
+      - name: Verify app resources
+        shell: pwsh
+        run: |
+          $d = 'publish/TextExpander'
+          Get-ChildItem $d -Recurse -Include *.pri,*.xbf | ForEach-Object { $_.FullName }
+          if (-not (Test-Path "$d/TextExpander.pri")) { throw 'TextExpander.pri missing from publish output' }
+
+      - name: Smoke test (launch for 15s)
+        if: matrix.arch == 'x64'
+        shell: pwsh
+        env:
+          TEXTEXPANDER_NO_DIALOG: '1'
+        run: |
+          $d = Resolve-Path 'publish/TextExpander'
+          $p = Start-Process "$d/TextExpander.exe" -PassThru
+          Start-Sleep 15
+          $log = "$d/crash.log"
+          if (Test-Path $log) { Get-Content $log }
+          if ($p.HasExited) { throw "App exited early with code $($p.ExitCode)" }
+          Write-Host "App still running after 15s - OK"
+          Stop-Process $p -Force
+          Start-Sleep 2
+          Remove-Item $log, "$d/snippets.json" -ErrorAction SilentlyContinue
+
+      - name: Expansion test (Notepad)
+        if: matrix.arch == 'x64'
+        shell: pwsh
+        env:
+          TEXTEXPANDER_NO_DIALOG: '1'
+        run: |
+          $d = Resolve-Path 'publish/TextExpander'
+          $app = Start-Process "$d/TextExpander.exe" -PassThru
+          Start-Sleep 10
+          $np = Start-Process notepad -PassThru
+          Start-Sleep 4
+          $ws = New-Object -ComObject WScript.Shell
+          $null = $ws.AppActivate('Notepad')
+          Start-Sleep 1
+          $ws.SendKeys('hi ;sig')
+          Start-Sleep 3
+          $ws.SendKeys('^a'); Start-Sleep 1
+          $ws.SendKeys('^c'); Start-Sleep 1
+          $text = Get-Clipboard -Raw
+          Write-Host "Notepad text: [$text]"
+          Get-Process notepad -ErrorAction SilentlyContinue | Stop-Process -Force
+          Stop-Process $app -Force -ErrorAction SilentlyContinue
+          Start-Sleep 2
+          if (Test-Path "$d/crash.log") { Get-Content "$d/crash.log"; Remove-Item "$d/crash.log" }
+          Remove-Item "$d/snippets.json" -ErrorAction SilentlyContinue
+          if ($text -notmatch 'hi Best regards' -or $text -notmatch '\*\*Your Name\*\*') { throw 'Expansion test failed' }
+          Write-Host 'Plain-text expansion OK (Markdown source)'
+
+      - name: Rich-text test (Edge contenteditable)
+        if: matrix.arch == 'x64'
+        shell: powershell
+        env:
+          TEXTEXPANDER_NO_DIALOG: '1'
+        run: |
+          $d = Resolve-Path 'publish/TextExpander'
+          $app = Start-Process "$d/TextExpander.exe" -PassThru
+          Start-Sleep 10
+          $page = Join-Path $env:RUNNER_TEMP 'richtest.html'
+          '<html><head><title>RichTest</title></head><body><div id="e" contenteditable="true" style="height:90vh"></div><script>document.getElementById("e").focus()</script></body></html>' | Set-Content $page -Encoding UTF8
+          $edge = "${env:ProgramFiles(x86)}\Microsoft\Edge\Application\msedge.exe"
+          $url = 'file:///' + ($page -replace '\\','/')
+          Start-Process $edge "--no-first-run --no-default-browser-check --disable-features=msEdgeFRE --user-data-dir=$env:RUNNER_TEMP\edgeprof --app=$url"
+          Start-Sleep 10
+          $ws = New-Object -ComObject WScript.Shell
+          $null = $ws.AppActivate('RichTest')
+          Start-Sleep 2
+          $ws.SendKeys('hi ;sig')
+          Start-Sleep 3
+          $ws.SendKeys('^a'); Start-Sleep 1
+          $ws.SendKeys('^c'); Start-Sleep 1
+          $html = Get-Clipboard -TextFormatType Html -Raw
+          $txt = Get-Clipboard -Raw
+          Write-Host "Copied text: [$txt]"
+          Write-Host "Copied HTML:"; Write-Host $html
+          Get-Process msedge -ErrorAction SilentlyContinue | Stop-Process -Force
+          Stop-Process $app -Force -ErrorAction SilentlyContinue
+          Start-Sleep 2
+          if (Test-Path "$d/crash.log") { Get-Content "$d/crash.log"; Remove-Item "$d/crash.log" }
+          Remove-Item "$d/snippets.json", "$d/settings.json" -ErrorAction SilentlyContinue
+          if ($html -notmatch '<(strong|b)\b[^>]*>Your Name</') { throw 'Rich-text paste did not produce bold text' }
+          if ($txt -notmatch 'hi Best regards') { throw 'Trigger was not replaced cleanly' }
+          Write-Host 'Rich-text expansion OK'
+
+      - name: Screenshot (dark mode)
+        if: matrix.arch == 'x64'
+        continue-on-error: true
+        shell: powershell
+        env:
+          TEXTEXPANDER_NO_DIALOG: '1'
+        run: |
+          $d = Resolve-Path 'publish/TextExpander'
+          reg add HKCU\Software\Microsoft\Windows\CurrentVersion\Themes\Personalize /v AppsUseLightTheme /t REG_DWORD /d 0 /f | Out-Null
+          # Demo snippets for the screenshot
+          $demo = @(
+            @{ Trigger = ';reply'; Text = "Hi there,`n`nThanks for reaching out! Here's a quick summary:`n`n- **Status:** shipped ``v1.0``  `n- **Docs:** [read more](https://example.com)`n- [x] Tested on Windows 11`n`n> Let me know if you have questions.`n`nBest,`n*Alex*" },
+            @{ Trigger = ';sig';   Text = "Best regards,`n**Your Name**" },
+            @{ Trigger = ';em';    Text = 'me@example.com' },
+            @{ Trigger = ';table'; Text = "| Plan | Price |`n|---|---|`n| Free | `$0 |`n| Pro | `$5 |" }
+          )
+          $demo | ConvertTo-Json | Set-Content "$d/snippets.json" -Encoding UTF8
+          $app = Start-Process "$d/TextExpander.exe" -PassThru
+          Start-Sleep 12
+          Add-Type @"
+          using System; using System.Runtime.InteropServices;
+          public static class W {
+            [DllImport("user32.dll")] public static extern bool SetWindowPos(IntPtr h, IntPtr a, int x, int y, int cx, int cy, uint f);
+            [DllImport("user32.dll")] public static extern bool SetForegroundWindow(IntPtr h);
+            [DllImport("dwmapi.dll")] public static extern int DwmGetWindowAttribute(IntPtr h, int a, out RECT r, int s);
+            public struct RECT { public int L, T, R, B; }
+          }
+          "@
+          $app.Refresh(); $h = $app.MainWindowHandle
+          [W]::SetWindowPos($h, [IntPtr]::Zero, 40, 20, 980, 660, 0x40) | Out-Null
+          [W]::SetForegroundWindow($h) | Out-Null
+          Start-Sleep 3
+          $r = New-Object W+RECT
+          [W]::DwmGetWindowAttribute($h, 9, [ref]$r, 16) | Out-Null
+          Add-Type -AssemblyName System.Drawing
+          $w = $r.R - $r.L; $hh = $r.B - $r.T
+          $bmp = New-Object System.Drawing.Bitmap $w, $hh
+          [System.Drawing.Graphics]::FromImage($bmp).CopyFromScreen($r.L, $r.T, 0, 0, (New-Object System.Drawing.Size $w, $hh))
+          $bmp.Save("$PWD/screenshot.png")
+          Stop-Process $app -Force
+          Start-Sleep 2
+          Remove-Item "$d/snippets.json", "$d/settings.json", "$d/crash.log" -ErrorAction SilentlyContinue
+
+      - uses: actions/upload-artifact@v4
+        if: matrix.arch == 'x64'
+        continue-on-error: true
+        with:
+          name: screenshot
+          path: screenshot.png
+
+      - name: Zip
+        run: Compress-Archive -Path publish/TextExpander/* -DestinationPath TextExpander-portable-${{ matrix.arch }}.zip
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: TextExpander-portable-${{ matrix.arch }}
+          path: TextExpander-portable-${{ matrix.arch }}.zip
+
+      - name: Attach to release
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: TextExpander-portable-${{ matrix.arch }}.zip
