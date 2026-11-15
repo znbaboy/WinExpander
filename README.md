@@ -17,13 +17,16 @@ No installer, no .NET or Windows App SDK install needed.
 - Expansions paste as **rich text** in apps that support it (Word, Outlook, Gmail, Teams…) and as clean plain text everywhere else (Notepad, terminals)
 - Your clipboard is restored after each expansion, and nothing lands in Win+V history
 - Auto-saves as you type
+- Light / dark / system theme
+- Close to system tray (Open · Pause expansion · Exit), single instance
+- Optional start with Windows (starts hidden in the tray)
 
 ## Use
 - **New snippet** (Ctrl+N), set a trigger like `;sig`, write the body in Markdown.
 - Type the trigger anywhere and it gets replaced.
 - Toggle switch pauses expansion. Expansion is disabled while the app itself is focused.
 - Snippets are saved to `snippets.json` next to the exe (portable). If that folder isn't writable, it falls back to `%LOCALAPPDATA%\TextExpander\`.
-- Auto-start: put a shortcut to the exe in `shell:startup`.
+- Settings (⚙ bottom-left): theme, close to tray, start with Windows, plain-text paste mode.
 
 ## Build from source
 Requires Windows 10 1809+ and the .NET 8 SDK.
