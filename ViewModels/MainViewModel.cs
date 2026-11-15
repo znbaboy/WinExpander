@@ -67,6 +67,12 @@ public partial class MainViewModel : ObservableObject
         QueueSave();
     }
 
+    /// <summary>Raised when a page asks to show the Settings page.</summary>
+    public event Action? OpenSettingsRequested;
+
+    [RelayCommand]
+    private void OpenSettings() => OpenSettingsRequested?.Invoke();
+
     [RelayCommand]
     private void AddSnippet()
     {

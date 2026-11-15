@@ -11,7 +11,7 @@
     <WindowsAppSDKSelfContained>true</WindowsAppSDKSelfContained>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
-    <Version>1.1.0</Version>
+    <Version>1.0.0</Version>
     <!-- MVVM Toolkit field-based [ObservableProperty] AOT hint; not relevant (no AOT) -->
     <NoWarn>$(NoWarn);MVVMTK0045</NoWarn>
     <!-- Portable publish: self-contained, no .NET or Windows App SDK install needed -->

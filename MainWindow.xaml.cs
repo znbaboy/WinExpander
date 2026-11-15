@@ -46,6 +46,7 @@ public sealed partial class MainWindow : Window
         WindowHook.Handler = _tray.HandleMessage;
 
         ViewModel.PropertyChanged += OnViewModelChanged;
+        ViewModel.OpenSettingsRequested += () => Nav.SelectedItem = Nav.SettingsItem;
         ApplyTheme();
         Root.ActualThemeChanged += (_, _) => UpdateCaptionButtons();
 

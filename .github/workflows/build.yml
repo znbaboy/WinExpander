@@ -11,12 +11,37 @@ on:
         description: 'Create a GitHub release with this tag (e.g. v1.0.0). Leave empty to just build.'
         required: false
         default: ''
+      reset_releases:
+        description: 'Delete ALL existing releases and tags first'
+        type: boolean
+        required: false
+        default: false
 
 permissions:
   contents: write
 
 jobs:
+  reset:
+    if: github.event_name == 'workflow_dispatch' && inputs.reset_releases
+    runs-on: ubuntu-latest
+    steps:
+      - name: Delete existing releases and tags
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+        run: |
+          for tag in $(gh release list -R "$REPO" --limit 100 --json tagName -q '.[].tagName'); do
+            echo "Deleting release $tag"
+            gh release delete "$tag" -R "$REPO" --yes --cleanup-tag
+          done
+          for tag in $(gh api "repos/$REPO/tags" -q '.[].name'); do
+            echo "Deleting tag $tag"
+            gh api -X DELETE "repos/$REPO/git/refs/tags/$tag"
+          done
+
   build:
+    needs: reset
+    if: always() && needs.reset.result != 'failure' && needs.reset.result != 'cancelled'
     runs-on: windows-latest
     strategy:
       fail-fast: false
@@ -111,24 +136,35 @@ jobs:
           $app.Refresh()
           $win = [System.Windows.Automation.AutomationElement]::FromHandle($app.MainWindowHandle)
           $all = [System.Windows.Automation.TreeScope]::Descendants
-          function Find($name) {
+          function Find($name, $type) {
             $c = New-Object System.Windows.Automation.PropertyCondition([System.Windows.Automation.AutomationElement]::NameProperty, $name)
+            if ($type) {
+              $t = New-Object System.Windows.Automation.PropertyCondition([System.Windows.Automation.AutomationElement]::ControlTypeProperty, $type)
+              $c = New-Object System.Windows.Automation.AndCondition($c, $t)
+            }
             $win.FindFirst($all, $c)
           }
-          $item = Find 'Settings'
-          if (-not $item) { throw 'No Settings item found in the window' }
-          Write-Host "Found: $($item.Current.ControlType.ProgrammaticName) '$($item.Current.Name)'"
-          $p = $null
-          if ($item.TryGetCurrentPattern([System.Windows.Automation.SelectionItemPattern]::Pattern, [ref]$p)) { $p.Select() }
-          elseif ($item.TryGetCurrentPattern([System.Windows.Automation.InvokePattern]::Pattern, [ref]$p)) { $p.Invoke() }
-          else { throw 'Settings item cannot be clicked' }
-          Start-Sleep 3
-          $card = Find 'App theme'
+          function Click($el) {
+            $p = $null
+            if ($el.TryGetCurrentPattern([System.Windows.Automation.SelectionItemPattern]::Pattern, [ref]$p)) { $p.Select() }
+            elseif ($el.TryGetCurrentPattern([System.Windows.Automation.InvokePattern]::Pattern, [ref]$p)) { $p.Invoke() }
+            else { throw "'$($el.Current.Name)' cannot be clicked" }
+          }
+          $ok = $true
+          # 1) Sidebar "Settings" button
+          $btn = Find 'Open settings' ([System.Windows.Automation.ControlType]::Button)
+          if (-not $btn) { Write-Host 'No sidebar Settings button'; $ok = $false }
+          else { Click $btn; Start-Sleep 3; if (Find 'App theme') { Write-Host 'Sidebar Settings button OK' } else { Write-Host 'Sidebar button did not open Settings'; $ok = $false } }
+          # back to Snippets, then 2) navigation pane Settings item
+          Click (Find 'Snippets' ([System.Windows.Automation.ControlType]::ListItem)); Start-Sleep 2
+          $item = Find 'Settings' ([System.Windows.Automation.ControlType]::ListItem)
+          if (-not $item) { Write-Host 'No Settings item in navigation pane'; $ok = $false }
+          else { Click $item; Start-Sleep 3; if (Find 'App theme') { Write-Host 'Nav Settings item OK' } else { Write-Host 'Nav item did not open Settings'; $ok = $false } }
           Stop-Process $app -Force
           Start-Sleep 2
           if (Test-Path "$d\crash.log") { Get-Content "$d\crash.log"; Remove-Item "$d\crash.log" }
           Remove-Item "$d\snippets.json", "$d\settings.json" -ErrorAction SilentlyContinue
-          if (-not $card) { throw 'Clicking Settings did not open the Settings page' }
+          if (-not $ok) { throw 'Settings navigation failed' }
           Write-Host 'Settings navigation OK'
 
       - name: Expansion test (Notepad)

@@ -50,9 +50,21 @@
                 </ListView.ItemTemplate>
             </ListView>
 
-            <ToggleSwitch Grid.Row="2" Margin="4,0,0,0"
-                          IsOn="{x:Bind ViewModel.ExpansionEnabled, Mode=TwoWay}"
-                          OnContent="Expansion on" OffContent="Expansion paused" />
+            <Grid Grid.Row="2" Margin="4,0,0,0">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+                <ToggleSwitch IsOn="{x:Bind ViewModel.ExpansionEnabled, Mode=TwoWay}"
+                              OnContent="Expansion on" OffContent="Expansion paused" />
+                <Button Grid.Column="1" VerticalAlignment="Center" Command="{x:Bind ViewModel.OpenSettingsCommand}"
+                        ToolTipService.ToolTip="Settings" AutomationProperties.Name="Open settings">
+                    <StackPanel Orientation="Horizontal" Spacing="6">
+                        <SymbolIcon Symbol="Setting" />
+                        <TextBlock Text="Settings" />
+                    </StackPanel>
+                </Button>
+            </Grid>
         </Grid>
 
         <tk:GridSplitter Grid.Column="1" ResizeBehavior="BasedOnAlignment" ResizeDirection="Auto"
