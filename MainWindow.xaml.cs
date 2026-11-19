@@ -20,6 +20,11 @@ public sealed partial class MainWindow : Window
     {
         InitializeComponent();
         ViewModel = MainViewModel.Instance;
+        if (Environment.GetCommandLineArgs().Contains(Startup.TrayArg))
+        {
+            ViewModel.SetWindowVisible(false);
+            TrimMemorySoon();
+        }
 
         ExtendsContentIntoTitleBar = true;
         SetTitleBar(AppTitleBar);
@@ -31,7 +36,7 @@ public sealed partial class MainWindow : Window
         WindowHook.Apply(_hwnd, 760, 480);
         ClipboardHelper.Owner = _hwnd;
 
-        _expander = new Expander(() => ViewModel.Snippets, DispatcherQueue, _hwnd)
+        _expander = new Expander(ViewModel, DispatcherQueue, _hwnd)
         {
             Enabled = ViewModel.ExpansionEnabled
         };
@@ -62,6 +67,8 @@ public sealed partial class MainWindow : Window
                 e.Cancel = true;
                 ViewModel.SaveNow();
                 AppWindow.Hide();
+                ViewModel.SetWindowVisible(false);
+                TrimMemorySoon();
             }
         };
 
@@ -100,6 +107,7 @@ public sealed partial class MainWindow : Window
 
     private void ShowFromTray()
     {
+        ViewModel.SetWindowVisible(true);
         Activate();
         if (AppWindow.Presenter is OverlappedPresenter p && p.State == OverlappedPresenterState.Minimized) p.Restore();
         SetForegroundWindow(_hwnd);
@@ -111,8 +119,22 @@ public sealed partial class MainWindow : Window
         Close();
     }
 
+    /// <summary>After hiding to the tray, give memory back to Windows once the preview has shut down.</summary>
+    private async void TrimMemorySoon()
+    {
+        await Task.Delay(3000);
+        if (ViewModel.IsWindowVisible) return;
+        GC.Collect();
+        GC.WaitForPendingFinalizers();
+        GC.Collect(GC.MaxGeneration, GCCollectionMode.Forced, blocking: true, compacting: true);
+        SetProcessWorkingSetSize(System.Diagnostics.Process.GetCurrentProcess().Handle, -1, -1);
+    }
+
     [DllImport("user32.dll")]
     private static extern bool SetForegroundWindow(IntPtr hWnd);
+
+    [DllImport("kernel32.dll")]
+    private static extern bool SetProcessWorkingSetSize(IntPtr process, nint min, nint max);
 
     // ---------- Theme ----------
 

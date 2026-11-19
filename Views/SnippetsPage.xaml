@@ -183,8 +183,8 @@
 
                     <Border Grid.Row="1" Grid.Column="2" CornerRadius="4" BorderThickness="1"
                             BorderBrush="{ThemeResource ControlStrokeColorDefaultBrush}">
-                        <Grid>
-                            <WebView2 x:Name="Preview" />
+                        <Grid x:Name="PreviewHost">
+                            <!-- WebView2 is created on demand and released when hidden (saves ~100 MB) -->
                             <TextBlock x:Name="PreviewError" Visibility="Collapsed" Margin="12" TextWrapping="Wrap"
                                        Foreground="{ThemeResource TextFillColorSecondaryBrush}"
                                        Text="Preview needs the Microsoft Edge WebView2 Runtime." />

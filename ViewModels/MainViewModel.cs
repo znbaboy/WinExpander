@@ -27,6 +27,20 @@ public partial class MainViewModel : ObservableObject
 
     public bool HasSelection => Selected != null;
 
+    /// <summary>Bumped on any snippet change so the expander can cache its trigger table.</summary>
+    public int SnippetsVersion { get; private set; }
+
+    /// <summary>False while the window is hidden in the tray; pages release heavy resources.</summary>
+    public bool IsWindowVisible { get; private set; } = true;
+    public event Action<bool>? WindowVisibilityChanged;
+
+    public void SetWindowVisible(bool visible)
+    {
+        if (IsWindowVisible == visible) return;
+        IsWindowVisible = visible;
+        WindowVisibilityChanged?.Invoke(visible);
+    }
+
     [ObservableProperty] private bool _expansionEnabled = true;
     [ObservableProperty] private string _saveStatus = "";
 
@@ -58,12 +72,17 @@ public partial class MainViewModel : ObservableObject
         _loading = false;
     }
 
-    private void OnSnippetChanged(object? sender, PropertyChangedEventArgs e) => QueueSave();
+    private void OnSnippetChanged(object? sender, PropertyChangedEventArgs e)
+    {
+        if (e.PropertyName is nameof(Snippet.Trigger) or nameof(Snippet.Text)) SnippetsVersion++;
+        QueueSave();
+    }
 
     private void OnSnippetsChanged(object? sender, NotifyCollectionChangedEventArgs e)
     {
         foreach (Snippet s in e.NewItems ?? Array.Empty<Snippet>()) s.PropertyChanged += OnSnippetChanged;
         foreach (Snippet s in e.OldItems ?? Array.Empty<Snippet>()) s.PropertyChanged -= OnSnippetChanged;
+        SnippetsVersion++;
         QueueSave();
     }
 

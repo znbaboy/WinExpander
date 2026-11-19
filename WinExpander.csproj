@@ -11,7 +11,11 @@
     <WindowsAppSDKSelfContained>true</WindowsAppSDKSelfContained>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
-    <Version>1.0.0</Version>
+    <Version>1.0.1</Version>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <!-- Lower footprint: no background GC thread, English-only satellite resources -->
+    <ConcurrentGarbageCollection>false</ConcurrentGarbageCollection>
+    <SatelliteResourceLanguages>en</SatelliteResourceLanguages>
     <!-- MVVM Toolkit field-based [ObservableProperty] AOT hint; not relevant (no AOT) -->
     <NoWarn>$(NoWarn);MVVMTK0045</NoWarn>
     <!-- Portable publish: self-contained, no .NET or Windows App SDK install needed -->

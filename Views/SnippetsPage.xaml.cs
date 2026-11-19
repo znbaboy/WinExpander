@@ -12,6 +12,7 @@ public sealed partial class SnippetsPage : Page
 
     private readonly DispatcherQueueTimer _previewTimer;
     private bool _previewReady;
+    private WebView2? _preview;
 
     public SnippetsPage()
     {
@@ -24,7 +25,15 @@ public sealed partial class SnippetsPage : Page
 
         ActualThemeChanged += (_, _) => UpdatePreview();
         ViewModel.PropertyChanged += OnViewModelChanged;
-        _ = InitPreviewAsync();
+
+        // The preview (WebView2, ~100 MB across its processes) only exists while it can be seen
+        Loaded += (_, _) => { if (ViewModel.IsWindowVisible) EnsurePreview(); };
+        Unloaded += (_, _) => ReleasePreview();
+        ViewModel.WindowVisibilityChanged += visible =>
+        {
+            if (!visible) ReleasePreview();
+            else if (IsLoaded) EnsurePreview();
+        };
 
         if (ViewModel.Selected == null && ViewModel.Snippets.Count > 0)
             ViewModel.Selected = ViewModel.Snippets[0];
@@ -111,12 +120,17 @@ public sealed partial class SnippetsPage : Page
 
     // ---------- Preview ----------
 
-    private async Task InitPreviewAsync()
+    private async void EnsurePreview()
     {
+        if (_preview != null) return;
+        var wv = new WebView2();
+        _preview = wv;
+        PreviewHost.Children.Insert(0, wv);
         try
         {
-            await Preview.EnsureCoreWebView2Async();
-            var core = Preview.CoreWebView2;
+            await wv.EnsureCoreWebView2Async();
+            if (_preview != wv) return; // released while starting
+            var core = wv.CoreWebView2;
             core.Settings.AreDefaultContextMenusEnabled = false;
             core.Settings.AreDevToolsEnabled = false;
             core.Settings.IsStatusBarEnabled = false;
@@ -128,9 +142,19 @@ public sealed partial class SnippetsPage : Page
         catch (Exception ex)
         {
             Program.Log(ex);
-            Preview.Visibility = Visibility.Collapsed;
+            ReleasePreview();
             PreviewError.Visibility = Visibility.Visible;
         }
+    }
+
+    private void ReleasePreview()
+    {
+        if (_preview == null) return;
+        _previewReady = false;
+        var wv = _preview;
+        _preview = null;
+        PreviewHost.Children.Remove(wv);
+        try { wv.Close(); } catch { }
     }
 
     // Links in the preview open in the default browser
@@ -152,10 +176,10 @@ public sealed partial class SnippetsPage : Page
 
     private void UpdatePreview()
     {
-        if (!_previewReady) return;
+        if (!_previewReady || _preview == null) return;
         bool dark = ActualTheme == ElementTheme.Dark;
-        Preview.CoreWebView2.Profile.PreferredColorScheme =
+        _preview.CoreWebView2.Profile.PreferredColorScheme =
             dark ? CoreWebView2PreferredColorScheme.Dark : CoreWebView2PreferredColorScheme.Light;
-        Preview.NavigateToString(PreviewPage.Build(Markdown.ToHtml(ViewModel.Selected?.Text ?? ""), dark));
+        _preview.NavigateToString(PreviewPage.Build(Markdown.ToHtml(ViewModel.Selected?.Text ?? ""), dark));
     }
 }

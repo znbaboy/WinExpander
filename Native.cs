@@ -41,7 +41,7 @@ internal static class Native
     [DllImport("user32.dll")] public static extern uint GetWindowThreadProcessId(IntPtr hWnd, out uint pid);
     [DllImport("user32.dll")] public static extern IntPtr GetKeyboardLayout(uint threadId);
     [DllImport("user32.dll", CharSet = CharSet.Unicode)]
-    public static extern int ToUnicodeEx(uint vk, uint scan, byte[] state, StringBuilder buf, int cch, uint flags, IntPtr hkl);
+    public static extern int ToUnicodeEx(uint vk, uint scan, byte[] state, [Out] char[] buf, int cch, uint flags, IntPtr hkl);
     [DllImport("user32.dll", SetLastError = true)]
     static extern uint SendInput(uint n, INPUT[] inputs, int size);
 
