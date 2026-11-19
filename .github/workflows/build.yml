@@ -167,6 +167,40 @@ jobs:
           if (-not $ok) { throw 'Settings navigation failed' }
           Write-Host 'Settings navigation OK'
 
+      - name: Resource usage
+        if: matrix.arch == 'x64'
+        shell: powershell
+        env:
+          TEXTEXPANDER_NO_DIALOG: '1'
+        run: |
+          Add-Type @"
+          using System; using System.Runtime.InteropServices;
+          public static class R { [DllImport("user32.dll")] public static extern bool PostMessage(IntPtr h, uint m, IntPtr w, IntPtr l); }
+          "@
+          $d = Resolve-Path 'publish/WinExpander'
+          $app = Start-Process "$d\WinExpander.exe" -PassThru
+          function Measure($label) {
+            $app.Refresh()
+            $wv = @(Get-Process msedgewebview2 -ErrorAction SilentlyContinue)
+            $wvWs = ($wv | Measure-Object WorkingSet64 -Sum).Sum
+            $wvPriv = ($wv | Measure-Object PrivateMemorySize64 -Sum).Sum
+            $line = '{0,-22} app WS {1,6:N1} MB  private {2,6:N1} MB  threads {3,3} | WebView2 x{4} WS {5,6:N1} MB private {6,6:N1} MB | CPU {7:N2}s' -f `
+              $label, ($app.WorkingSet64/1MB), ($app.PrivateMemorySize64/1MB), $app.Threads.Count, $wv.Count, ($wvWs/1MB), ($wvPriv/1MB), $app.TotalProcessorTime.TotalSeconds
+            Write-Host "USAGE: $line"
+          }
+          Start-Sleep 15; Measure 'Window open (15s)'
+          $app.Refresh(); $h = $app.MainWindowHandle
+          Start-Sleep 30; Measure 'Window open idle (45s)'
+          [R]::PostMessage($h, 0x10, [IntPtr]::Zero, [IntPtr]::Zero) | Out-Null
+          Start-Sleep 15; Measure 'In tray (15s)'
+          Start-Sleep 30; Measure 'In tray idle (45s)'
+          Stop-Process $app -Force
+          Get-Process msedgewebview2 -ErrorAction SilentlyContinue | Stop-Process -Force
+          Start-Sleep 2
+          $size = (Get-ChildItem $d -Recurse | Measure-Object Length -Sum).Sum
+          Write-Host ('USAGE: Publish folder {0:N1} MB, {1} files' -f ($size/1MB), (Get-ChildItem $d -Recurse -File).Count)
+          Remove-Item "$d\snippets.json", "$d\settings.json", "$d\crash.log" -ErrorAction SilentlyContinue
+
       - name: Expansion test (Notepad)
         if: matrix.arch == 'x64'
         shell: pwsh
@@ -284,7 +318,9 @@ jobs:
           path: screenshot*.png
 
       - name: Zip
-        run: Compress-Archive -Path publish/WinExpander/* -DestinationPath WinExpander-portable-${{ matrix.arch }}.zip
+        run: |
+          Compress-Archive -Path publish/WinExpander/* -DestinationPath WinExpander-portable-${{ matrix.arch }}.zip
+          Write-Host ('USAGE: Zip {0:N1} MB' -f ((Get-Item WinExpander-portable-${{ matrix.arch }}.zip).Length/1MB))
 
       - uses: actions/upload-artifact@v4
         with:
