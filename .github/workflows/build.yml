@@ -179,7 +179,7 @@ jobs:
           "@
           $d = Resolve-Path 'publish/WinExpander'
           $app = Start-Process "$d\WinExpander.exe" -PassThru
-          function Measure($label) {
+          function Report-Usage($label) {
             $app.Refresh()
             $wv = @(Get-Process msedgewebview2 -ErrorAction SilentlyContinue)
             $wvWs = ($wv | Measure-Object WorkingSet64 -Sum).Sum
@@ -188,12 +188,12 @@ jobs:
               $label, ($app.WorkingSet64/1MB), ($app.PrivateMemorySize64/1MB), $app.Threads.Count, $wv.Count, ($wvWs/1MB), ($wvPriv/1MB), $app.TotalProcessorTime.TotalSeconds
             Write-Host "USAGE: $line"
           }
-          Start-Sleep 15; Measure 'Window open (15s)'
+          Start-Sleep 15; Report-Usage 'Window open (15s)'
           $app.Refresh(); $h = $app.MainWindowHandle
-          Start-Sleep 30; Measure 'Window open idle (45s)'
+          Start-Sleep 30; Report-Usage 'Window open idle (45s)'
           [R]::PostMessage($h, 0x10, [IntPtr]::Zero, [IntPtr]::Zero) | Out-Null
-          Start-Sleep 15; Measure 'In tray (15s)'
-          Start-Sleep 30; Measure 'In tray idle (45s)'
+          Start-Sleep 15; Report-Usage 'In tray (15s)'
+          Start-Sleep 30; Report-Usage 'In tray idle (45s)'
           Stop-Process $app -Force
           Get-Process msedgewebview2 -ErrorAction SilentlyContinue | Stop-Process -Force
           Start-Sleep 2
